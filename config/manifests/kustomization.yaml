@@ -1,0 +1,2 @@
+resources:
+- bases/akamai-operator.clusterserviceversion.yaml
