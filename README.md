@@ -28,14 +28,14 @@ A Kubernetes operator for managing Akamai Properties through the Property Manage
 curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/install.sh | bash -s v0.25.0
 
 # Install the Akamai Operator
-kubectl apply -f https://github.com/akamai/akamai-operator/releases/latest/download/akamai-operator.yaml
+kubectl apply -f https://github.com/mmz-srf/akamai-operator/releases/latest/download/akamai-operator.yaml
 ```
 
 #### Option B: Direct Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/akamai/akamai-operator.git
+git clone https://github.com/mmz-srf/akamai-operator.git
 cd akamai-operator
 
 # Install CRDs
@@ -237,7 +237,7 @@ status:
 
 ```bash
 # Clone the repository
-git clone https://github.com/akamai/akamai-operator.git
+git clone https://github.com/mmz-srf/akamai-operator.git
 cd akamai-operator
 
 # Build the operator
@@ -273,7 +273,7 @@ This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) fo
 For support questions, please:
 
 1. Check the [troubleshooting guide](#monitoring-and-troubleshooting)
-2. Review [existing issues](https://github.com/akamai/akamai-operator/issues)
+2. Review [existing issues](https://github.com/mmz-srf/akamai-operator/issues)
 3. Create a new issue with detailed information
 
 For Akamai API questions, consult the [Property Manager API documentation](https://techdocs.akamai.com/property-mgr/reference/post-properties).
