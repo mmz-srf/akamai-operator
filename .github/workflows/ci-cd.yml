@@ -201,6 +201,14 @@ jobs:
         export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${GITHUB_REF#refs/tags/v}
         docker push $BUNDLE_IMG
 
+    - name: Upload bundle artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bundle-manifests
+        path: |
+          bundle/
+          config/
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -210,14 +218,27 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Download bundle artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: bundle-manifests
+
+    - name: Install kustomize
+      run: |
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.2.1 /tmp
+        sudo mv /tmp/kustomize /usr/local/bin/kustomize
+
     - name: Get release version
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
     - name: Generate deployment manifest
       run: |
-        export IMG=${{ needs.docker.outputs.image }}
-        make build-installer > akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+        # Set the correct image in the manager config
+        cd config/manager && kustomize edit set image controller=${{ needs.docker.outputs.image }}
+        cd ../..
+        # Build the complete deployment manifest
+        kustomize build config/default > akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
