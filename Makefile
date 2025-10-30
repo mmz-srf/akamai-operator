@@ -138,7 +138,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests --package=akamai-operator --apis-dir=api --interactive=false -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS) -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
@@ -255,9 +255,9 @@ $(OPERATOR_SDK): $(LOCALBIN)
 BUNDLE_IMG ?= $(IMG:.*)
 
 # Bundle metadata options
-VERSION ?= 0.1.0
+VERSION ?= 0.0.1
 IMAGE_TAG_BASE ?= akamai/akamai-operator
-BUNDLE_METADATA_OPTS ?= --package=akamai-operator --channels=stable --default-channel=stable --display-name="Akamai Operator" --description="Kubernetes Operator for managing Akamai Properties via the Property Manager API"
+BUNDLE_METADATA_OPTS ?= --package=akamai-operator --channels=stable --default-channel=stable
 
 # Bundle generation flags
 BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
