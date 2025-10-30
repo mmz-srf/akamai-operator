@@ -175,6 +175,13 @@ jobs:
       run: |
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Generate bundle
       run: |
         export IMG=${{ needs.docker.outputs.image }}
