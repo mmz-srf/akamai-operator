@@ -1,0 +1,98 @@
+apiVersion: akamai.com/v1alpha1
+kind: AkamaiProperty
+metadata:
+  labels:
+    app.kubernetes.io/name: akamaiproperty
+    app.kubernetes.io/instance: akamaiproperty-sample
+    app.kubernetes.io/part-of: akamai-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: akamai-operator
+  name: akamaiproperty-sample
+spec:
+  # The name of the Akamai property
+  propertyName: "example.com"
+  
+  # Akamai contract information
+  contractId: "ctr_C-1234567"  # Replace with your contract ID
+  groupId: "grp_12345"         # Replace with your group ID
+  productId: "prd_Fresca"      # Product ID for delivery
+  
+  # Hostnames configuration
+  hostnames:
+    - cnameFrom: "example.com"
+      cnameTo: "example.com.edgesuite.net"
+      certProvisioningType: "CPS_MANAGED"
+    - cnameFrom: "www.example.com"
+      cnameTo: "example.com.edgesuite.net"
+      certProvisioningType: "CPS_MANAGED"
+  
+  # Edge hostname configuration
+  edgeHostname:
+    domainPrefix: "example.com"
+    domainSuffix: "edgesuite.net"
+    secureNetwork: "STANDARD_TLS"
+    ipVersionBehavior: "IPV4_IPV6"
+  
+  # Property rules configuration
+  rules:
+    name: "default"
+    behaviors:
+      - name: "origin"
+        options:
+          originType: "CUSTOMER"
+          hostname: "origin.example.com"
+          forwardHostHeader: "REQUEST_HOST_HEADER"
+          cacheKeyHostname: "ORIGIN_HOSTNAME"
+          compress: true
+          enableTrueClientIp: true
+          trueClientIpHeader: "True-Client-IP"
+      - name: "cpCode"
+        options:
+          value:
+            id: 123456  # Replace with your CP Code
+      - name: "caching"
+        options:
+          behavior: "MAX_AGE"
+          mustRevalidate: false
+          ttl: "1d"
+    children:
+      - name: "Static Assets"
+        criteria:
+          - name: "fileExtension"
+            options:
+              matchOperator: "IS_ONE_OF"
+              values:
+                - "css"
+                - "js"
+                - "png"
+                - "jpg"
+                - "jpeg"
+                - "gif"
+                - "ico"
+                - "svg"
+                - "woff"
+                - "woff2"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "MAX_AGE"
+              mustRevalidate: false
+              ttl: "7d"
+          - name: "prefreshCache"
+            options:
+              enabled: true
+              prefreshTime: 90
+      - name: "Dynamic Content"
+        criteria:
+          - name: "fileExtension"
+            options:
+              matchOperator: "IS_ONE_OF"
+              values:
+                - "html"
+                - "jsp"
+                - "php"
+                - "asp"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "NO_STORE"

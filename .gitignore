@@ -1,0 +1,133 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Kubernetes operator specific
+# Kubebuilder generated files
+config/crd/bases/
+config/webhook/manifests.yaml
+config/rbac/role.yaml
+config/manager/manager.yaml
+
+# Test coverage
+cover.out
+coverage.html
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Docker
+.dockerignore
+
+# Kubernetes secrets (never commit these!)
+*secret*.yaml
+*Secret*.yaml
+credentials.yaml
+kubeconfig
+
+# OLM bundle artifacts
+bundle/
+catalog/
+
+# Local development
+/testbin/
+/hack/tools/bin/
+
+# Controller-gen and other tools
+controller-gen
+setup-envtest
+kustomize
+operator-sdk
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Logs
+*.log
+logs/
+
+# Local testing
+/samples/local/
+/config/local/
+
+# Backup files
+*.bak
+*.backup
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Certificates and keys (security)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Local operator testing
+/operator-test/
+/e2e-test/
+
+# Helm charts (if added later)
+charts/*/charts/
+charts/*/requirements.lock
+
+# Local configuration overrides
+config.local.yaml
+values.local.yaml
+
+# Performance and profiling
+*.prof
+*.mem
+*.cpu
+
+# Documentation build artifacts
+/docs/_build/
+/docs/site/
+
+# Local scripts
+/scripts/local/
+run-local.sh
