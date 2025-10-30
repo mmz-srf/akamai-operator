@@ -3,8 +3,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
-  namespace: system
+  name: akamai-operator-controller-manager
+  namespace: akamai-operator-system
 spec:
   template:
     spec:
@@ -103,5 +103,5 @@ spec:
             - "ALL"
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: controller-manager
+      serviceAccountName: akamai-operator-controller-manager
       terminationGracePeriodSeconds: 10
