@@ -1,0 +1,200 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'api/**'
+      - 'config/**'
+      - 'README.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'api/**'
+      - 'config/**'
+      - 'README.md'
+      - 'docs/**'
+
+jobs:
+  generate-docs:
+    name: Generate API Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install controller-gen
+      run: |
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+    - name: Generate CRD documentation
+      run: |
+        mkdir -p docs/api
+        controller-gen crd:generateEmbeddedObjectMeta=true paths="./..." output:crd:artifacts:config=docs/api
+
+    - name: Generate API reference
+      run: |
+        cat > docs/api/README.md << 'EOF'
+        # API Reference
+        
+        This document contains the API reference for the Akamai Operator Custom Resource Definitions.
+        
+        ## AkamaiProperty
+        
+        The AkamaiProperty resource represents an Akamai property configuration that can be managed through Kubernetes.
+        
+        ### Specification
+        
+        ```yaml
+        apiVersion: akamai.com/v1alpha1
+        kind: AkamaiProperty
+        metadata:
+          name: example-property
+        spec:
+          propertyName: "example.com"
+          contractId: "ctr_C-1234567"
+          groupId: "grp_12345"
+          productId: "prd_Fresca"
+          hostnames:
+            - cnameFrom: "example.com"
+              cnameTo: "example.com.edgesuite.net"
+              certProvisioningType: "CPS_MANAGED"
+          rules:
+            name: "default"
+            behaviors:
+              - name: "origin"
+                options:
+                  originType: "CUSTOMER"
+                  hostname: "origin.example.com"
+        ```
+        
+        ### Fields
+        
+        | Field | Type | Description | Required |
+        |-------|------|-------------|----------|
+        | `propertyName` | string | Name of the Akamai property | Yes |
+        | `contractId` | string | Akamai contract ID | Yes |
+        | `groupId` | string | Akamai group ID | Yes |
+        | `productId` | string | Akamai product ID | Yes |
+        | `hostnames` | []Hostname | List of hostnames for the property | No |
+        | `rules` | PropertyRules | Property rules configuration | No |
+        | `edgeHostname` | EdgeHostnameSpec | Edge hostname configuration | No |
+        
+        ### Status
+        
+        The AkamaiProperty status provides information about the current state of the property:
+        
+        | Field | Type | Description |
+        |-------|------|-------------|
+        | `propertyId` | string | Akamai property ID |
+        | `latestVersion` | int | Latest version of the property |
+        | `stagingVersion` | int | Version deployed to staging |
+        | `productionVersion` | int | Version deployed to production |
+        | `phase` | string | Current phase (Creating, Ready, Updating, Error, Deleting) |
+        | `conditions` | []Condition | Detailed status conditions |
+        | `lastUpdated` | Time | Last update timestamp |
+        
+        ### Examples
+        
+        See the [examples directory](../../config/samples/) for complete examples.
+        EOF
+
+    - name: Validate documentation links
+      run: |
+        # Check for broken internal links in README
+        if grep -q "](.*\.md)" README.md; then
+          echo "Checking internal documentation links..."
+          for link in $(grep -o "](.*\.md)" README.md | sed 's/](\(.*\))/\1/'); do
+            if [[ $link =~ ^http ]]; then
+              continue
+            fi
+            if [ ! -f "$link" ]; then
+              echo "Broken link found: $link"
+              exit 1
+            fi
+          done
+        fi
+
+    - name: Check documentation formatting
+      run: |
+        # Check if README has proper markdown formatting
+        if command -v markdownlint &> /dev/null; then
+          markdownlint README.md
+        fi
+
+    - name: Upload documentation artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: api-docs
+        path: docs/
+
+  check-examples:
+    name: Validate Examples
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install controller-gen
+      run: |
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+    - name: Generate CRDs
+      run: |
+        controller-gen crd paths="./..." output:crd:artifacts:config=config/crd/bases
+
+    - name: Validate example resources
+      run: |
+        # Check if examples are valid against the CRD
+        for example in config/samples/*.yaml; do
+          echo "Validating $example"
+          # Basic YAML validation
+          python3 -c "import yaml; yaml.safe_load(open('$example'))"
+          
+          # Check required fields are present
+          if ! grep -q "propertyName:" "$example"; then
+            echo "Error: $example missing required field 'propertyName'"
+            exit 1
+          fi
+          
+          if ! grep -q "contractId:" "$example"; then
+            echo "Error: $example missing required field 'contractId'"
+            exit 1
+          fi
+          
+          echo "✓ $example is valid"
+        done
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: [generate-docs, check-examples]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download documentation artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: api-docs
+        path: docs/
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+        publish_branch: gh-pages
+        force_orphan: true

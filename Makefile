@@ -275,3 +275,12 @@ create-secret: ## Create Akamai credentials secret in Kubernetes
 .PHONY: sample-property
 sample-property: ## Apply a sample AkamaiProperty resource
 	kubectl apply -f config/samples/
+
+.PHONY: build-installer
+build-installer: manifests kustomize ## Generate a combined YAML with CRDs and deployment
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/default
+
+.PHONY: bundle-validate
+bundle-validate: bundle ## Validate the bundle
+	$(OPERATOR_SDK) bundle validate ./bundle

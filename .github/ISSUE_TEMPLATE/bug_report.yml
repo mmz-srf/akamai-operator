@@ -1,0 +1,95 @@
+name: Bug Report
+description: File a bug report to help us improve the Akamai Operator
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees:
+  - mmz-srf
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+
+  - type: input
+    id: version
+    attributes:
+      label: Operator Version
+      description: What version of the Akamai Operator are you running?
+      placeholder: v0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: kubernetes-version
+    attributes:
+      label: Kubernetes Version
+      description: What version of Kubernetes are you using?
+      placeholder: v1.28.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: What platform are you running on?
+      options:
+        - Kubernetes (vanilla)
+        - OpenShift
+        - EKS (Amazon)
+        - GKE (Google)
+        - AKS (Azure)
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Create AkamaiProperty resource...
+        2. Wait for...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Operator Logs
+      description: Relevant logs from the operator controller
+      render: shell
+      placeholder: |
+        kubectl logs -n akamai-operator-system deployment/akamai-operator-controller-manager
+
+  - type: textarea
+    id: resource-yaml
+    attributes:
+      label: Resource YAML
+      description: The AkamaiProperty resource that's causing issues (sanitize any sensitive data)
+      render: yaml
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here.

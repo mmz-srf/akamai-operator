@@ -1,0 +1,255 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run go fmt check
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Build binary
+      run: |
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o bin/manager main.go
+
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: manager-binary
+        path: bin/manager
+
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Output image
+      id: image
+      run: |
+        echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name != 'pull_request'
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.docker.outputs.image }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  bundle:
+    name: Build OLM Bundle
+    runs-on: ubuntu-latest
+    needs: docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install operator-sdk
+      run: |
+        RELEASE_VERSION=v1.32.0
+        curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk_linux_amd64
+        chmod +x operator-sdk_linux_amd64
+        sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
+
+    - name: Install controller-gen
+      run: |
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+    - name: Generate bundle
+      run: |
+        export IMG=${{ needs.docker.outputs.image }}
+        export VERSION=${GITHUB_REF#refs/tags/v}
+        make bundle
+
+    - name: Validate bundle
+      run: operator-sdk bundle validate ./bundle
+
+    - name: Build bundle image
+      run: |
+        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${GITHUB_REF#refs/tags/v}
+        docker build -f bundle.Dockerfile -t $BUNDLE_IMG .
+
+    - name: Push bundle image
+      run: |
+        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${GITHUB_REF#refs/tags/v}
+        docker push $BUNDLE_IMG
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [docker, bundle]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Get release version
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## Changes in ${{ steps.get_version.outputs.VERSION }}
+          
+          ### Docker Images
+          - **Operator**: `${{ needs.docker.outputs.image }}`
+          - **Bundle**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${{ steps.get_version.outputs.VERSION }}`
+          
+          ### Installation
+          ```bash
+          # Using OLM
+          kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.VERSION }}/akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+          
+          # Using make
+          make deploy IMG=${{ needs.docker.outputs.image }}
+          ```
+          
+          ### Verification
+          ```bash
+          kubectl get pods -n akamai-operator-system
+          kubectl get crd akamaiproperties.akamai.com
+          ```
+        draft: false
+        prerelease: false
+
+    - name: Generate deployment manifest
+      run: |
+        export IMG=${{ needs.docker.outputs.image }}
+        make build-installer > akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+
+    - name: Upload deployment manifest
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+        asset_name: akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+        asset_content_type: application/x-yaml

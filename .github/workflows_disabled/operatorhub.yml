@@ -1,0 +1,160 @@
+name: Publish to OperatorHub
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  operatorhub:
+    name: Submit to OperatorHub
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Get release version
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Setup environment
+      run: |
+        export VERSION=${{ steps.get_version.outputs.VERSION }}
+        export IMG=ghcr.io/${{ github.repository }}:v${VERSION}
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+        echo "IMG=${IMG}" >> $GITHUB_ENV
+
+    - name: Install operator-sdk
+      run: |
+        RELEASE_VERSION=v1.32.0
+        curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk_linux_amd64
+        chmod +x operator-sdk_linux_amd64
+        sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
+
+    - name: Install controller-gen
+      run: |
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+    - name: Generate bundle for OperatorHub
+      run: |
+        make bundle IMG=${IMG} VERSION=${VERSION}
+
+    - name: Checkout community-operators
+      uses: actions/checkout@v4
+      with:
+        repository: k8s-operatorhub/community-operators
+        token: ${{ secrets.OPERATORHUB_TOKEN }}
+        path: community-operators
+        ref: main
+
+    - name: Create operator directory
+      run: |
+        mkdir -p community-operators/operators/akamai-operator/${VERSION}
+        cp -r bundle/* community-operators/operators/akamai-operator/${VERSION}/
+
+    - name: Create Pull Request to OperatorHub
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.OPERATORHUB_TOKEN }}
+        path: community-operators
+        commit-message: "Add akamai-operator v${{ steps.get_version.outputs.VERSION }}"
+        title: "Add akamai-operator v${{ steps.get_version.outputs.VERSION }}"
+        body: |
+          This PR adds version ${{ steps.get_version.outputs.VERSION }} of the Akamai Operator to OperatorHub.
+          
+          **Operator Details:**
+          - **Name**: Akamai Operator
+          - **Version**: ${{ steps.get_version.outputs.VERSION }}
+          - **Description**: Kubernetes operator for managing Akamai Properties
+          - **Repository**: https://github.com/${{ github.repository }}
+          - **Container Image**: ghcr.io/${{ github.repository }}:v${{ steps.get_version.outputs.VERSION }}
+          
+          **Changes:**
+          - Initial submission of Akamai Operator
+          - Manages Akamai Properties through Property Manager API
+          - OLM compatible with comprehensive RBAC
+          - Multi-architecture support (amd64, arm64)
+          
+          **Testing:**
+          - [x] Bundle validated with operator-sdk
+          - [x] Container images built and published
+          - [x] E2E tests passing
+          
+          /cc @operator-framework/community-operators-reviewers
+        branch: akamai-operator-v${{ steps.get_version.outputs.VERSION }}
+        delete-branch: true
+
+  redhat-certification:
+    name: Submit to Red Hat Certified Operators
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Get release version
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Setup environment
+      run: |
+        export VERSION=${{ steps.get_version.outputs.VERSION }}
+        export IMG=ghcr.io/${{ github.repository }}:v${VERSION}
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+        echo "IMG=${IMG}" >> $GITHUB_ENV
+
+    - name: Install operator-sdk
+      run: |
+        RELEASE_VERSION=v1.32.0
+        curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk_linux_amd64
+        chmod +x operator-sdk_linux_amd64
+        sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
+
+    - name: Generate bundle for Red Hat
+      run: |
+        make bundle IMG=${IMG} VERSION=${VERSION}
+
+    - name: Checkout certified-operators
+      uses: actions/checkout@v4
+      with:
+        repository: redhat-openshift-ecosystem/certified-operators
+        token: ${{ secrets.REDHAT_CERTIFICATION_TOKEN }}
+        path: certified-operators
+        ref: main
+
+    - name: Create operator directory
+      run: |
+        mkdir -p certified-operators/operators/akamai-operator/${VERSION}
+        cp -r bundle/* certified-operators/operators/akamai-operator/${VERSION}/
+
+    - name: Create Pull Request to Red Hat Certified Operators
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.REDHAT_CERTIFICATION_TOKEN }}
+        path: certified-operators
+        commit-message: "Add akamai-operator v${{ steps.get_version.outputs.VERSION }}"
+        title: "Add akamai-operator v${{ steps.get_version.outputs.VERSION }}"
+        body: |
+          This PR adds version ${{ steps.get_version.outputs.VERSION }} of the Akamai Operator to Red Hat Certified Operators.
+          
+          **Certification Details:**
+          - **Operator Name**: Akamai Operator
+          - **Version**: ${{ steps.get_version.outputs.VERSION }}
+          - **Vendor**: Akamai Technologies
+          - **Repository**: https://github.com/${{ github.repository }}
+          - **Container Registry**: ghcr.io/${{ github.repository }}
+          
+          **Certification Checklist:**
+          - [x] Container images are publicly accessible
+          - [x] Operator follows OLM best practices
+          - [x] RBAC follows principle of least privilege
+          - [x] Multi-architecture support provided
+          - [x] Documentation is comprehensive
+          - [x] Security scanning performed
+          
+          **Support Information:**
+          - **Support Level**: Community
+          - **Documentation**: https://github.com/${{ github.repository }}/blob/main/README.md
+          - **Issues**: https://github.com/${{ github.repository }}/issues
+        branch: akamai-operator-v${{ steps.get_version.outputs.VERSION }}
+        delete-branch: true

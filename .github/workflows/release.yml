@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Validate version format
+      run: |
+        if [[ ! "${{ inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+          echo "Invalid version format. Use semantic versioning (e.g., v1.0.0)"
+          exit 1
+        fi
+
+    - name: Check if tag exists
+      run: |
+        if git rev-parse --verify "refs/tags/${{ inputs.version }}" >/dev/null 2>&1; then
+          echo "Tag ${{ inputs.version }} already exists"
+          exit 1
+        fi
+
+  release:
+    name: Create Release
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install tools
+      run: |
+        # Install operator-sdk
+        RELEASE_VERSION=v1.32.0
+        curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk_linux_amd64
+        chmod +x operator-sdk_linux_amd64
+        sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
+        
+        # Install controller-gen
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+    - name: Generate release artifacts
+      run: |
+        export VERSION=${{ inputs.version }}
+        export IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+        
+        # Generate manifests
+        make manifests
+        
+        # Generate bundle
+        make bundle
+        
+        # Generate installer
+        make build-installer > akamai-operator-${VERSION}.yaml
+
+    - name: Build and push images
+      run: |
+        export VERSION=${{ inputs.version }}
+        export IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${VERSION}
+        
+        # Build and push operator image
+        make docker-build docker-push IMG=$IMG
+        
+        # Build and push bundle image
+        make bundle-build bundle-push BUNDLE_IMG=$BUNDLE_IMG
+
+    - name: Create Git tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a ${{ inputs.version }} -m "Release ${{ inputs.version }}"
+        git push origin ${{ inputs.version }}
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        if git describe --tags --abbrev=0 HEAD^ >/dev/null 2>&1; then
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^)
+          echo "## Changes since ${PREVIOUS_TAG}" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges >> CHANGELOG.md
+        else
+          echo "## Initial Release" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "- Initial release of Akamai Operator" >> CHANGELOG.md
+        fi
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ inputs.version }}
+        release_name: Release ${{ inputs.version }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: ${{ inputs.prerelease }}
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./akamai-operator-${{ inputs.version }}.yaml
+        asset_name: akamai-operator-${{ inputs.version }}.yaml
+        asset_content_type: application/x-yaml
+
+  post-release:
+    name: Post Release Tasks
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trigger OperatorHub submission
+      if: ${{ !inputs.prerelease }}
+      uses: peter-evans/repository-dispatch@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        event-type: operatorhub-submission
+        client-payload: '{"version": "${{ inputs.version }}"}'
+
+    - name: Update documentation
+      run: |
+        echo "Release ${{ inputs.version }} completed successfully!"
+        echo "Next steps:"
+        echo "1. Monitor OperatorHub submission"
+        echo "2. Update documentation if needed"
+        echo "3. Announce release in community channels"

@@ -1,0 +1,209 @@
+name: E2E Tests
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        kubernetes-version: ['1.26.0', '1.27.0', '1.28.0']
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install Kind
+      run: |
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+        chmod +x ./kind
+        sudo mv ./kind /usr/local/bin/kind
+
+    - name: Install kubectl
+      run: |
+        curl -LO "https://dl.k8s.io/release/v${{ matrix.kubernetes-version }}/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
+    - name: Create Kind cluster
+      run: |
+        cat <<EOF > kind-config.yaml
+        kind: Cluster
+        apiVersion: kind.x-k8s.io/v1alpha4
+        nodes:
+        - role: control-plane
+          image: kindest/node:v${{ matrix.kubernetes-version }}
+        - role: worker
+          image: kindest/node:v${{ matrix.kubernetes-version }}
+        EOF
+        kind create cluster --config kind-config.yaml --name akamai-operator-test
+
+    - name: Install cert-manager
+      run: |
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager -n cert-manager --timeout=300s
+
+    - name: Build operator image
+      run: |
+        export IMG=localhost:5000/akamai-operator:test
+        make docker-build IMG=$IMG
+        kind load docker-image $IMG --name akamai-operator-test
+
+    - name: Deploy operator
+      run: |
+        export IMG=localhost:5000/akamai-operator:test
+        make deploy IMG=$IMG
+
+    - name: Wait for operator deployment
+      run: |
+        kubectl wait --for=condition=available deployment/akamai-operator-controller-manager -n akamai-operator-system --timeout=300s
+
+    - name: Create test secrets
+      run: |
+        kubectl create secret generic akamai-credentials \
+          --from-literal=host="test.akamaiapis.net" \
+          --from-literal=client_token="test-token" \
+          --from-literal=client_secret="test-secret" \
+          --from-literal=access_token="test-access" \
+          --namespace=akamai-operator-system
+
+    - name: Apply test resources
+      run: |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: akamai.com/v1alpha1
+        kind: AkamaiProperty
+        metadata:
+          name: test-property
+        spec:
+          propertyName: "test.example.com"
+          contractId: "ctr_C-1234567"
+          groupId: "grp_12345"
+          productId: "prd_Fresca"
+          hostnames:
+            - cnameFrom: "test.example.com"
+              cnameTo: "test.example.com.edgesuite.net"
+        EOF
+
+    - name: Verify CRD installation
+      run: |
+        kubectl get crd akamaiproperties.akamai.com
+        kubectl describe crd akamaiproperties.akamai.com
+
+    - name: Check operator logs
+      if: always()
+      run: |
+        kubectl logs -n akamai-operator-system deployment/akamai-operator-controller-manager
+
+    - name: Check test resource status
+      run: |
+        kubectl get akamaiproperties test-property -o yaml
+        kubectl describe akamaiproperties test-property
+
+    - name: Cleanup
+      if: always()
+      run: |
+        kind delete cluster --name akamai-operator-test
+
+  compatibility:
+    name: OpenShift Compatibility
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install oc CLI
+      run: |
+        curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+        tar -xzf openshift-client-linux.tar.gz
+        sudo mv oc /usr/local/bin/
+
+    - name: Validate OpenShift compatibility
+      run: |
+        # Check SecurityContextConstraints compatibility
+        echo "Validating OpenShift SecurityContextConstraints..."
+        
+        # Check for restricted SCC compliance
+        if grep -q "runAsNonRoot: true" config/manager/deployment.yaml; then
+          echo "✓ Runs as non-root user"
+        else
+          echo "✗ Should run as non-root user for OpenShift"
+          exit 1
+        fi
+        
+        if grep -q "allowPrivilegeEscalation: false" config/manager/deployment.yaml; then
+          echo "✓ Privilege escalation disabled"
+        else
+          echo "✗ Should disable privilege escalation for OpenShift"
+          exit 1
+        fi
+        
+        if grep -q 'drop:\s*-\s*"ALL"' config/manager/deployment.yaml; then
+          echo "✓ All capabilities dropped"
+        else
+          echo "✗ Should drop all capabilities for OpenShift"
+          exit 1
+        fi
+
+    - name: Validate bundle for OpenShift
+      run: |
+        # Check CSV annotations for OpenShift
+        if grep -q "operatorframework.io" bundle/manifests/akamai-operator.clusterserviceversion.yaml; then
+          echo "✓ OLM annotations present"
+        else
+          echo "✗ Missing OLM annotations"
+          exit 1
+        fi
+
+  scorecard:
+    name: Operator Scorecard
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install operator-sdk
+      run: |
+        RELEASE_VERSION=v1.32.0
+        curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk_linux_amd64
+        chmod +x operator-sdk_linux_amd64
+        sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
+
+    - name: Generate bundle
+      run: |
+        export IMG=ghcr.io/${{ github.repository }}:latest
+        make bundle
+
+    - name: Run scorecard tests
+      run: |
+        operator-sdk scorecard bundle --verbose
+
+    - name: Upload scorecard results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: scorecard-results
+        path: scorecard-output.json
