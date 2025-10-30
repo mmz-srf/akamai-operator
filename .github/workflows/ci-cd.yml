@@ -24,7 +24,7 @@ jobs:
         go-version: '1.21'
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -61,7 +61,7 @@ jobs:
         go-version: '1.21'
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -73,7 +73,7 @@ jobs:
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o bin/manager main.go
 
     - name: Upload binary artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: manager-binary
         path: bin/manager
@@ -145,7 +145,7 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -207,14 +207,15 @@ jobs:
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+    - name: Generate deployment manifest
+      run: |
+        export IMG=${{ needs.docker.outputs.image }}
+        make build-installer > akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        name: Release ${{ steps.get_version.outputs.VERSION }}
         body: |
           ## Changes in ${{ steps.get_version.outputs.VERSION }}
           
@@ -236,20 +237,7 @@ jobs:
           kubectl get pods -n akamai-operator-system
           kubectl get crd akamaiproperties.akamai.com
           ```
+        files: |
+          akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
         draft: false
         prerelease: false
-
-    - name: Generate deployment manifest
-      run: |
-        export IMG=${{ needs.docker.outputs.image }}
-        make build-installer > akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
-
-    - name: Upload deployment manifest
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
-        asset_name: akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
-        asset_content_type: application/x-yaml
