@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -57,8 +58,9 @@ type PropertyRules struct {
 	// Behaviors defines the behaviors to apply when criteria match
 	Behaviors []RuleBehavior `json:"behaviors,omitempty"`
 
-	// Children contains nested rules
-	Children []PropertyRules `json:"children,omitempty"`
+	// Children contains nested rules as raw JSON to avoid recursive type issues
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Children runtime.RawExtension `json:"children,omitempty"`
 }
 
 // RuleCriteria defines a criterion for rule matching
