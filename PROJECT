@@ -4,9 +4,9 @@
 # More info: https://book.kubebuilder.io/reference/project-config.html
 domain: akamai.com
 layout:
-- go.kubebuilder.io/v3
+- go.kubebuilder.io/v4
 projectName: akamai-operator
-repo: github.com/akamai/akamai-operator
+repo: github.com/mmz-srf/akamai-operator
 resources:
 - api:
     crdVersion: v1
@@ -15,6 +15,6 @@ resources:
   domain: akamai.com
   group: akamai
   kind: AkamaiProperty
-  path: github.com/akamai/akamai-operator/api/v1alpha1
+  path: github.com/mmz-srf/akamai-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

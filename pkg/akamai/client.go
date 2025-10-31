@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	akamaiV1alpha1 "github.com/akamai/akamai-operator/api/v1alpha1"
+	akamaiV1alpha1 "github.com/mmz-srf/akamai-operator/api/v1alpha1"
 )
 
 // Client represents an Akamai API client

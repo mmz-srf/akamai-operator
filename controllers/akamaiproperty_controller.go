@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	akamaiV1alpha1 "github.com/akamai/akamai-operator/api/v1alpha1"
-	"github.com/akamai/akamai-operator/pkg/akamai"
+	akamaiV1alpha1 "github.com/mmz-srf/akamai-operator/api/v1alpha1"
+	"github.com/mmz-srf/akamai-operator/pkg/akamai"
 )
 
 // AkamaiPropertyReconciler reconciles a AkamaiProperty object
