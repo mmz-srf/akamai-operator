@@ -238,7 +238,7 @@ jobs:
         cd config/manager && kustomize edit set image controller=${{ needs.docker.outputs.image }}
         cd ../..
         # Build the complete deployment manifest
-        kustomize build config/default > akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+        kustomize build config/default > akamai-operator.yaml
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -254,7 +254,7 @@ jobs:
           ### Installation
           ```bash
           # Using OLM
-          kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.VERSION }}/akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+          kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.VERSION }}/akamai-operator.yaml
           
           # Using make
           make deploy IMG=${{ needs.docker.outputs.image }}
@@ -266,6 +266,6 @@ jobs:
           kubectl get crd akamaiproperties.akamai.com
           ```
         files: |
-          akamai-operator-${{ steps.get_version.outputs.VERSION }}.yaml
+          akamai-operator.yaml
         draft: false
         prerelease: false
