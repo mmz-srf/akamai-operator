@@ -30,7 +30,7 @@ spec:
         - --upstream=http://127.0.0.1:8080/
         - --logtostderr=true
         - --v=0
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
@@ -75,20 +75,26 @@ spec:
             secretKeyRef:
               key: access_token
               name: akamai-credentials
-        image: ghcr.io/mmz-srf/akamai-operator:0
+        image: controller:latest
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8081
-          initialDelaySeconds: 15
+          initialDelaySeconds: 60
           periodSeconds: 20
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
         name: manager
         readinessProbe:
           httpGet:
             path: /readyz
             port: 8081
-          initialDelaySeconds: 5
+          initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
         resources:
           limits:
             cpu: 500m
