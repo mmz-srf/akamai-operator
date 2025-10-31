@@ -125,6 +125,7 @@ type AkamaiPropertyStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Cluster
 //+kubebuilder:printcolumn:name="Property ID",type=string,JSONPath=`.status.propertyId`
 //+kubebuilder:printcolumn:name="Latest Version",type=integer,JSONPath=`.status.latestVersion`
 //+kubebuilder:printcolumn:name="Staging Version",type=integer,JSONPath=`.status.stagingVersion`

@@ -58,6 +58,8 @@ kubectl create secret generic akamai-credentials \
   --namespace=akamai-operator-system
 ```
 
+**Note:** The operator watches for cluster-scoped `AkamaiProperty` resources across all namespaces, but the operator itself and its credentials are deployed in the `akamai-operator-system` namespace.
+
 ### 3. Create an Akamai Property
 
 Create a sample property configuration:
