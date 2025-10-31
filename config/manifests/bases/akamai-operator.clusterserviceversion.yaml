@@ -158,7 +158,7 @@ spec:
                     secretKeyRef:
                       key: access_token
                       name: akamai-credentials
-                image: controller:latest
+                image: ghcr.io/mmz-srf/akamai-operator:0
                 livenessProbe:
                   httpGet:
                     path: /healthz
