@@ -124,6 +124,50 @@ The `AkamaiProperty` custom resource supports the following specifications:
 - `hostnames`: Array of hostname configurations
 - `rules`: Property rules configuration with behaviors and criteria
 - `edgeHostname`: Edge hostname configuration
+- `activation`: Activation configuration for deploying the property to Akamai networks
+
+### Activation Configuration
+
+The operator supports automatic activation of properties to Akamai's staging and production networks:
+
+```yaml
+activation:
+  # Target network: STAGING or PRODUCTION
+  network: "STAGING"
+  # Email addresses to notify when activation status changes
+  notifyEmails:
+    - "admin@example.com"
+    - "devops@example.com"
+  # Descriptive note for the activation
+  note: "Automated activation via Kubernetes operator"
+  # Skip acknowledging individual warnings (default: false)
+  acknowledgeAllWarnings: true
+  # Enable fast metadata push (default: true)
+  fastPush: true
+  # Ignore HTTP errors during fast metadata push (default: true)
+  ignoreHttpErrors: true
+  # Use fast fallback for quick rollback within 1 hour (default: false)
+  useFastFallback: false
+```
+
+**Activation Process:**
+
+1. **Automatic Activation**: When an `activation` section is specified, the operator will automatically activate new property versions
+2. **Status Tracking**: The operator tracks activation status and updates the resource status accordingly
+3. **Network Support**: Supports both `STAGING` and `PRODUCTION` networks
+4. **Notifications**: Email notifications are sent based on the `notifyEmails` configuration
+5. **Rollback Support**: Fast fallback can be enabled for quick rollback within one hour of activation
+
+**Activation Status Fields:**
+
+The operator provides detailed activation status in the resource status:
+
+- `stagingVersion`: Currently active version on staging
+- `productionVersion`: Currently active version on production  
+- `stagingActivationId`: ID of the current staging activation
+- `productionActivationId`: ID of the current production activation
+- `stagingActivationStatus`: Status of staging activation (PENDING, ACTIVE, FAILED)
+- `productionActivationStatus`: Status of production activation (PENDING, ACTIVE, FAILED)
 
 ### Hostnames Configuration
 

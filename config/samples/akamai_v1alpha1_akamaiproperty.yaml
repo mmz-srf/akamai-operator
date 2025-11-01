@@ -96,3 +96,20 @@ spec:
           - name: "caching"
             options:
               behavior: "NO_STORE"
+  
+  # Activation configuration (optional)
+  activation:
+    # Network to activate on: STAGING or PRODUCTION
+    network: "STAGING"
+    # Email addresses to notify when activation status changes
+    notifyEmails:
+      - "admin@example.com"
+      - "devops@example.com"
+    # Descriptive note for this activation
+    note: "Automated activation via Kubernetes operator"
+    # Skip acknowledging individual warnings
+    acknowledgeAllWarnings: true
+    # Enable fast metadata push (recommended)
+    fastPush: true
+    # Ignore HTTP errors during fast metadata push
+    ignoreHttpErrors: true

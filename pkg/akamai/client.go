@@ -68,6 +68,38 @@ type CreatePropertyResponse struct {
 	PropertyLink string `json:"propertyLink"`
 }
 
+// ActivationRequest represents the request to activate a property
+type ActivationRequest struct {
+	PropertyVersion        int      `json:"propertyVersion"`
+	Network                string   `json:"network"`
+	Note                   string   `json:"note,omitempty"`
+	NotifyEmails           []string `json:"notifyEmails"`
+	AcknowledgeAllWarnings bool     `json:"acknowledgeAllWarnings,omitempty"`
+	UseFastFallback        bool     `json:"useFastFallback,omitempty"`
+	FastPush               *bool    `json:"fastPush,omitempty"`
+	IgnoreHttpErrors       *bool    `json:"ignoreHttpErrors,omitempty"`
+}
+
+// ActivationResponse represents the response from activating a property
+type ActivationResponse struct {
+	ActivationLink string `json:"activationLink"`
+}
+
+// Activation represents an activation status
+type Activation struct {
+	ActivationID            string    `json:"activationId"`
+	PropertyID              string    `json:"propertyId"`
+	PropertyVersion         int       `json:"propertyVersion"`
+	Network                 string    `json:"network"`
+	Status                  string    `json:"status"`
+	SubmitDate              time.Time `json:"submitDate"`
+	UpdateDate              time.Time `json:"updateDate"`
+	Note                    string    `json:"note"`
+	NotifyEmails            []string  `json:"notifyEmails"`
+	CanFastFallback         bool      `json:"canFastFallback"`
+	FallbackVersion         int       `json:"fallbackVersion,omitempty"`
+}
+
 // GetPropertyResponse represents the response from getting a property
 type GetPropertyResponse struct {
 	Properties struct {
@@ -261,6 +293,166 @@ func (c *Client) DeleteProperty(ctx context.Context, propertyID string) error {
 	}
 
 	return nil
+}
+
+// ActivateProperty activates a property version on the specified network
+func (c *Client) ActivateProperty(ctx context.Context, propertyID string, version int, activationSpec *akamaiV1alpha1.ActivationSpec) (string, error) {
+	activationReq := ActivationRequest{
+		PropertyVersion:        version,
+		Network:                activationSpec.Network,
+		Note:                   activationSpec.Note,
+		NotifyEmails:           activationSpec.NotifyEmails,
+		AcknowledgeAllWarnings: activationSpec.AcknowledgeAllWarnings,
+		UseFastFallback:        activationSpec.UseFastFallback,
+		FastPush:               activationSpec.FastPush,
+		IgnoreHttpErrors:       activationSpec.IgnoreHttpErrors,
+	}
+
+	reqBody, err := json.Marshal(activationReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal activation request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/papi/v1/properties/%s/activations", c.BaseURL, propertyID)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("PAPI-Use-Prefixes", "true")
+
+	// Sign the request
+	if err := c.signRequest(req, reqBody); err != nil {
+		return "", fmt.Errorf("failed to sign request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var activationResp ActivationResponse
+	if err := json.Unmarshal(respBody, &activationResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal activation response: %w", err)
+	}
+
+	// Extract activation ID from the activation link
+	activationID := extractActivationID(activationResp.ActivationLink)
+	return activationID, nil
+}
+
+// GetActivation retrieves the status of a property activation
+func (c *Client) GetActivation(ctx context.Context, propertyID, activationID string) (*Activation, error) {
+	url := fmt.Sprintf("%s/papi/v1/properties/%s/activations/%s", c.BaseURL, propertyID, activationID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.Header.Set("PAPI-Use-Prefixes", "true")
+
+	// Sign the request
+	if err := c.signRequest(req, nil); err != nil {
+		return nil, fmt.Errorf("failed to sign request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var activation Activation
+	if err := json.Unmarshal(respBody, &activation); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal activation response: %w", err)
+	}
+
+	return &activation, nil
+}
+
+// ListActivations lists all activations for a property
+func (c *Client) ListActivations(ctx context.Context, propertyID string) ([]Activation, error) {
+	url := fmt.Sprintf("%s/papi/v1/properties/%s/activations", c.BaseURL, propertyID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.Header.Set("PAPI-Use-Prefixes", "true")
+
+	// Sign the request
+	if err := c.signRequest(req, nil); err != nil {
+		return nil, fmt.Errorf("failed to sign request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	type ActivationsResponse struct {
+		Activations struct {
+			Items []Activation `json:"items"`
+		} `json:"activations"`
+	}
+
+	var activationsResp ActivationsResponse
+	if err := json.Unmarshal(respBody, &activationsResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal activations response: %w", err)
+	}
+
+	return activationsResp.Activations.Items, nil
+}
+
+// extractActivationID extracts the activation ID from the activation link
+func extractActivationID(activationLink string) string {
+	// Parse the activation link to extract the activation ID
+	// Example: /papi/v0/properties/prp_173136/activations/atv_67037?contractId=ctr_K-0N7RAK7&groupId=grp_15225
+	parts := strings.Split(activationLink, "/")
+	for i, part := range parts {
+		if part == "activations" && i+1 < len(parts) {
+			activationIDWithQuery := parts[i+1]
+			// Remove query parameters
+			if idx := strings.Index(activationIDWithQuery, "?"); idx != -1 {
+				return activationIDWithQuery[:idx]
+			}
+			return activationIDWithQuery
+		}
+	}
+	return ""
 }
 
 // signRequest signs an HTTP request using Akamai EdgeGrid authentication

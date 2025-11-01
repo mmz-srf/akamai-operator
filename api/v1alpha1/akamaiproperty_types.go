@@ -33,6 +33,9 @@ type AkamaiPropertySpec struct {
 
 	// EdgeHostname specifies the edge hostname configuration
 	EdgeHostname *EdgeHostnameSpec `json:"edgeHostname,omitempty"`
+
+	// Activation specifies the activation configuration for the property
+	Activation *ActivationSpec `json:"activation,omitempty"`
 }
 
 // Hostname represents a hostname configuration for the property
@@ -98,6 +101,32 @@ type EdgeHostnameSpec struct {
 	IPVersionBehavior string `json:"ipVersionBehavior,omitempty"`
 }
 
+// ActivationSpec defines the activation configuration for the property
+type ActivationSpec struct {
+	// Network specifies which network to activate on (STAGING or PRODUCTION)
+	// +kubebuilder:validation:Enum=STAGING;PRODUCTION
+	Network string `json:"network"`
+
+	// NotifyEmails are email addresses to notify when activation status changes
+	// +kubebuilder:validation:MinItems=1
+	NotifyEmails []string `json:"notifyEmails"`
+
+	// Note is a descriptive log comment for the activation
+	Note string `json:"note,omitempty"`
+
+	// AcknowledgeAllWarnings when true, skips acknowledging each warning individually
+	AcknowledgeAllWarnings bool `json:"acknowledgeAllWarnings,omitempty"`
+
+	// UseFastFallback enables fast fallback for quick rollback (within 1 hour)
+	UseFastFallback bool `json:"useFastFallback,omitempty"`
+
+	// FastPush enables fast metadata push when activating
+	FastPush *bool `json:"fastPush,omitempty"`
+
+	// IgnoreHttpErrors ignores HTTP errors when pushing fast metadata activation
+	IgnoreHttpErrors *bool `json:"ignoreHttpErrors,omitempty"`
+}
+
 // AkamaiPropertyStatus defines the observed state of AkamaiProperty
 type AkamaiPropertyStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -114,6 +143,18 @@ type AkamaiPropertyStatus struct {
 
 	// ProductionVersion is the version deployed to production
 	ProductionVersion int `json:"productionVersion,omitempty"`
+
+	// StagingActivationID is the activation ID for staging deployment
+	StagingActivationID string `json:"stagingActivationId,omitempty"`
+
+	// ProductionActivationID is the activation ID for production deployment
+	ProductionActivationID string `json:"productionActivationId,omitempty"`
+
+	// StagingActivationStatus is the status of staging activation
+	StagingActivationStatus string `json:"stagingActivationStatus,omitempty"`
+
+	// ProductionActivationStatus is the status of production activation
+	ProductionActivationStatus string `json:"productionActivationStatus,omitempty"`
 
 	// Conditions represent the latest available observations of the property's state
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
