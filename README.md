@@ -86,6 +86,10 @@ spec:
           originType: "CUSTOMER"
           hostname: "origin.my-website.com"
           forwardHostHeader: "REQUEST_HOST_HEADER"
+  activation:
+    network: "PRODUCTION"
+    notifyEmails:
+      - "admin@example.com"
 ```
 
 Apply the configuration:
