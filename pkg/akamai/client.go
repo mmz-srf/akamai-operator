@@ -87,17 +87,17 @@ type ActivationResponse struct {
 
 // Activation represents an activation status
 type Activation struct {
-	ActivationID            string    `json:"activationId"`
-	PropertyID              string    `json:"propertyId"`
-	PropertyVersion         int       `json:"propertyVersion"`
-	Network                 string    `json:"network"`
-	Status                  string    `json:"status"`
-	SubmitDate              time.Time `json:"submitDate"`
-	UpdateDate              time.Time `json:"updateDate"`
-	Note                    string    `json:"note"`
-	NotifyEmails            []string  `json:"notifyEmails"`
-	CanFastFallback         bool      `json:"canFastFallback"`
-	FallbackVersion         int       `json:"fallbackVersion,omitempty"`
+	ActivationID    string    `json:"activationId"`
+	PropertyID      string    `json:"propertyId"`
+	PropertyVersion int       `json:"propertyVersion"`
+	Network         string    `json:"network"`
+	Status          string    `json:"status"`
+	SubmitDate      time.Time `json:"submitDate"`
+	UpdateDate      time.Time `json:"updateDate"`
+	Note            string    `json:"note"`
+	NotifyEmails    []string  `json:"notifyEmails"`
+	CanFastFallback bool      `json:"canFastFallback"`
+	FallbackVersion int       `json:"fallbackVersion,omitempty"`
 }
 
 // GetPropertyResponse represents the response from getting a property

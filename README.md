@@ -204,6 +204,21 @@ rules:
             ttl: "7d"
 ```
 
+### Activation Configuration
+
+```yaml
+activation:
+  network: "STAGING"
+  notifyEmails:
+    - "admin@example.com"
+    - "devops@example.com"
+  note: "Automated activation via Kubernetes operator"
+  acknowledgeAllWarnings: true
+  fastPush: true
+  ignoreHttpErrors: true
+```
+
+
 ## Authentication
 
 The operator uses Akamai EdgeGrid authentication. You need to provide the following credentials:
@@ -239,6 +254,10 @@ spec:
         options:
           originType: "CUSTOMER"
           hostname: "origin.basic-website.com"
+  activation:
+    network: "PRODUCTION"
+    notifyEmails:
+      - "admin@example.com"
 ```
 
 ### Advanced Property with Multiple Rules
