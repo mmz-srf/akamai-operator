@@ -208,20 +208,6 @@ rules:
             ttl: "7d"
 ```
 
-### Activation Configuration
-
-```yaml
-activation:
-  network: "STAGING"
-  notifyEmails:
-    - "admin@example.com"
-    - "devops@example.com"
-  note: "Automated activation via Kubernetes operator"
-  acknowledgeAllWarnings: true
-  fastPush: true
-  ignoreHttpErrors: true
-```
-
 
 ## Authentication
 
