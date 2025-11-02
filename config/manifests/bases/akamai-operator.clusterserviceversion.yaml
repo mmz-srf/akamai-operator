@@ -285,10 +285,10 @@ spec:
   - name: Akamai Property Manager API
     url: https://techdocs.akamai.com/property-mgr/reference/api
   maintainers:
-  - email: support@srf.ch
-    name: SRF
+  - email: gicara@gmail.com
+    name: Gianni Carafa
   maturity: alpha
   provider:
-    name: SRF
-    url: https://www.srf.ch
+    name: Akamai Technologies
+    url: https://www.akamai.com
   version: 0.0.1
