@@ -43,6 +43,15 @@ metadata:
                   }
                 }
               ]
+            },
+            "activation": {
+              "network": "STAGING",
+              "notifyEmails": [
+                "admin@example.com"
+              ],
+              "note": "Automated activation via Kubernetes operator",
+              "acknowledgeAllWarnings": true,
+              "fastPush": true
             }
           }
         }
@@ -51,7 +60,21 @@ metadata:
     createdAt: "2025-10-30T12:00:00Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: akamai-operator.v0.1.0
+    # ArtifactHub annotations
+    artifacthub.io/license: Apache-2.0
+    artifacthub.io/prerelease: "false"
+    artifacthub.io/operator: "true"
+    artifacthub.io/operatorCapabilities: Basic Install
+    artifacthub.io/containersImages: |
+      - name: akamai-operator
+        image: akamai/akamai-operator:v0.3.0
+    artifacthub.io/crds: |
+      - kind: AkamaiProperty
+        version: v1alpha1
+        name: akamaiproperties.akamai.com
+        displayName: Akamai Property
+        description: Manages Akamai Properties through the Property Manager API
+  name: akamai-operator.v0.3.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -252,4 +275,4 @@ spec:
   provider:
     name: Akamai Technologies
     url: https://www.akamai.com
-  version: 0.1.0
+  version: 0.3.0
