@@ -1,0 +1,255 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "akamai.com/v1alpha1",
+          "kind": "AkamaiProperty",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "akamai-operator",
+              "app.kubernetes.io/instance": "akamaiproperty-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "akamaiproperty",
+              "app.kubernetes.io/part-of": "akamai-operator"
+            },
+            "name": "akamaiproperty-sample"
+          },
+          "spec": {
+            "contractId": "ctr_C-1234567",
+            "groupId": "grp_12345",
+            "productId": "prd_Fresca",
+            "propertyName": "example.com",
+            "hostnames": [
+              {
+                "cnameFrom": "example.com",
+                "cnameTo": "example.com.edgesuite.net",
+                "certProvisioningType": "CPS_MANAGED"
+              }
+            ],
+            "rules": {
+              "name": "default",
+              "behaviors": [
+                {
+                  "name": "origin",
+                  "options": {
+                    "originType": "CUSTOMER",
+                    "hostname": "origin.example.com",
+                    "forwardHostHeader": "REQUEST_HOST_HEADER",
+                    "cacheKeyHostname": "ORIGIN_HOSTNAME",
+                    "compress": true
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    capabilities: Basic Install
+    createdAt: "2025-10-30T12:00:00Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+  name: akamai-operator.v0.1.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: AkamaiProperty is the Schema for the akamaiproperties API
+      displayName: Akamai Property
+      kind: AkamaiProperty
+      name: akamaiproperties.akamai.com
+      version: v1alpha1
+  description: Kubernetes operator for managing Akamai Properties through the Property Manager API
+  displayName: Akamai Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - akamai.com
+          resources:
+          - akamaiproperties
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - akamai.com
+          resources:
+          - akamaiproperties/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - akamai.com
+          resources:
+          - akamaiproperties/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: akamai-operator-controller-manager
+      deployments:
+      - label:
+          app.kubernetes.io/component: manager
+          app.kubernetes.io/created-by: akamai-operator
+          app.kubernetes.io/instance: controller-manager
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: akamai-operator
+          app.kubernetes.io/part-of: akamai-operator
+        name: akamai-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/instance: controller-manager
+              app.kubernetes.io/name: akamai-operator
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                app.kubernetes.io/instance: controller-manager
+                app.kubernetes.io/name: akamai-operator
+            spec:
+              containers:
+              - args:
+                - --leader-elect
+                command:
+                - /manager
+                env:
+                - name: AKAMAI_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      key: host
+                      name: akamai-credentials
+                - name: AKAMAI_CLIENT_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      key: client_token
+                      name: akamai-credentials
+                - name: AKAMAI_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      key: client_secret
+                      name: akamai-credentials
+                - name: AKAMAI_ACCESS_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      key: access_token
+                      name: akamai-credentials
+                image: akamai/akamai-operator:latest
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: akamai-operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: akamai-operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - akamai
+  - cdn
+  - edge
+  - property
+  - manager
+  links:
+  - name: Akamai Operator
+    url: https://github.com/mmz-srf/akamai-operator
+  - name: Akamai Property Manager
+    url: https://techdocs.akamai.com/property-mgr/reference/post-properties
+  maintainers:
+  - email: developer-support@akamai.com
+    name: Akamai Technologies
+  maturity: alpha
+  provider:
+    name: Akamai Technologies
+    url: https://www.akamai.com
+  version: 0.1.0

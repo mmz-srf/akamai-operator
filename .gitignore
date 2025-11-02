@@ -65,8 +65,8 @@ credentials.yaml
 kubeconfig
 
 # OLM bundle artifacts
-bundle/
-catalog/
+#bundle/
+#catalog/
 
 # Local development
 /testbin/
