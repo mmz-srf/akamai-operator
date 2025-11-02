@@ -1,0 +1,6 @@
+# Artifact Hub package metadata file
+# https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-pkg.yml
+name: The name of the package (only alphanum, no spaces, dashes allowed) (required)
+operator: true
+install: | 
+  kubectl apply -f https://github.com/mmz-srf/akamai-operator/releases/latest/download/akamai-operator.yaml
