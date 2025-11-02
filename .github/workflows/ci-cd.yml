@@ -233,10 +233,11 @@ jobs:
           
           # Update alm-examples if needed (extract from sample file)
           if [ -f "config/samples/akamai_v1alpha1_akamaiproperty.yaml" ]; then
-            # Convert sample YAML to JSON for alm-examples
-            SAMPLE_JSON=$(yq eval -o=json config/samples/akamai_v1alpha1_akamaiproperty.yaml | jq -c .)
-            ALM_EXAMPLES="[$SAMPLE_JSON]"
-            yq eval ".metadata.annotations.\"alm-examples\" = \"$ALM_EXAMPLES\"" -i $CSV_FILE
+            # Convert sample YAML to JSON array for alm-examples
+            SAMPLE_JSON=$(yq eval -o=json config/samples/akamai_v1alpha1_akamaiproperty.yaml)
+            # Create proper JSON array and escape for YAML
+            echo "[$SAMPLE_JSON]" > /tmp/alm-examples.json
+            yq eval ".metadata.annotations.\"alm-examples\" = load(\"/tmp/alm-examples.json\") | @json" -i $CSV_FILE
           fi
         fi
 
