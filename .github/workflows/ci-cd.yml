@@ -7,6 +7,11 @@ on:
   #pull_request:
   #  branches: [ main ]
 
+permissions:
+  contents: write
+  packages: write
+  security-events: write
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -175,6 +180,66 @@ jobs:
       run: |
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 
+    - name: Install yq for YAML processing
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Update ArtifactHub package metadata
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        TAG=${{ steps.get_version.outputs.TAG }}
+        
+        # Update artifacthub-pkg.yml with current version and image
+        yq eval ".version = \"$VERSION\"" -i artifacthub-pkg.yml
+        yq eval ".appVersion = \"$VERSION\"" -i artifacthub-pkg.yml
+        yq eval ".containersImages[0].image = \"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG\"" -i artifacthub-pkg.yml
+        
+        # Update createdAt to current timestamp
+        TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        yq eval ".createdAt = \"$TIMESTAMP\"" -i artifacthub-pkg.yml
+        
+        # Update install command with correct release version
+        INSTALL_CMD="kubectl apply -f https://github.com/${{ github.repository }}/releases/download/$TAG/akamai-operator.yaml"
+        yq eval ".install = \"$INSTALL_CMD\"" -i artifacthub-pkg.yml
+
+    - name: Update bundle metadata
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        
+        # Update bundle annotations
+        yq eval ".annotations.\"operators.operatorframework.io/metrics.builder\" = \"operator-sdk-v1.34.1\"" -i bundle/metadata/annotations.yaml
+        yq eval ".annotations.\"operators.operatorframework.io/metrics.project_layout\" = \"go.kubebuilder.io/v4\"" -i bundle/metadata/annotations.yaml
+        
+        # Update ClusterServiceVersion name and version
+        CSV_FILE="bundle/manifests/akamai-operator.clusterserviceversion.yaml"
+        if [ -f "$CSV_FILE" ]; then
+          yq eval ".metadata.name = \"akamai-operator.v$VERSION\"" -i $CSV_FILE
+          yq eval ".spec.version = \"$VERSION\"" -i $CSV_FILE
+          
+          # Update createdAt timestamp
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          yq eval ".metadata.annotations.createdAt = \"$TIMESTAMP\"" -i $CSV_FILE
+          
+          # Update container image in CSV
+          yq eval ".metadata.annotations.\"artifacthub.io/containersImages\" = \"- name: akamai-operator\n  image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.TAG }}\"" -i $CSV_FILE
+          
+          # Update alm-examples if needed (extract from sample file)
+          if [ -f "config/samples/akamai_v1alpha1_akamaiproperty.yaml" ]; then
+            # Convert sample YAML to JSON for alm-examples
+            SAMPLE_JSON=$(yq eval -o=json config/samples/akamai_v1alpha1_akamaiproperty.yaml | jq -c .)
+            ALM_EXAMPLES="[$SAMPLE_JSON]"
+            yq eval ".metadata.annotations.\"alm-examples\" = \"$ALM_EXAMPLES\"" -i $CSV_FILE
+          fi
+        fi
+
     - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
@@ -185,7 +250,7 @@ jobs:
     - name: Generate bundle
       run: |
         export IMG=${{ needs.docker.outputs.image }}
-        export VERSION=${GITHUB_REF#refs/tags/v}
+        export VERSION=${{ steps.get_version.outputs.VERSION }}
         make bundle
 
     - name: Validate bundle
@@ -193,13 +258,39 @@ jobs:
 
     - name: Build bundle image
       run: |
-        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${GITHUB_REF#refs/tags/v}
+        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${{ steps.get_version.outputs.TAG }}
         docker build -f bundle.Dockerfile -t $BUNDLE_IMG .
 
     - name: Push bundle image
       run: |
-        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${GITHUB_REF#refs/tags/v}
+        export BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${{ steps.get_version.outputs.TAG }}
         docker push $BUNDLE_IMG
+
+    - name: Commit updated metadata files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Add updated files
+        git add artifacthub-pkg.yml
+        git add bundle/metadata/annotations.yaml
+        if [ -f "bundle/manifests/akamai-operator.clusterserviceversion.yaml" ]; then
+          git add bundle/manifests/akamai-operator.clusterserviceversion.yaml
+        fi
+        
+        # Check if there are changes to commit
+        if ! git diff --staged --quiet; then
+          git commit -m "chore: update metadata for release ${{ steps.get_version.outputs.TAG }}
+          
+          - Update artifacthub-pkg.yml version to ${{ steps.get_version.outputs.VERSION }}
+          - Update container image references
+          - Update bundle metadata and CSV version
+          - Update timestamps to $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          
+          git push origin HEAD:main
+        else
+          echo "No changes to commit"
+        fi
 
     - name: Upload bundle artifacts
       uses: actions/upload-artifact@v4
@@ -208,6 +299,7 @@ jobs:
         path: |
           bundle/
           config/
+          artifacthub-pkg.yml
 
   release:
     name: Create Release

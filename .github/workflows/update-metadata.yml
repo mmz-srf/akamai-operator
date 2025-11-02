@@ -1,0 +1,144 @@
+name: Update Metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to update to (e.g., 0.3.0)'
+        required: true
+        type: string
+      update_timestamp:
+        description: 'Update timestamps'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-metadata:
+    name: Update ArtifactHub and Bundle Metadata
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install yq for YAML processing
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+
+    - name: Install jq for JSON processing
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+
+    - name: Validate version input
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Version must be in format X.Y.Z (e.g., 0.3.0)"
+          exit 1
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "TAG=v$VERSION" >> $GITHUB_ENV
+
+    - name: Update ArtifactHub package metadata
+      run: |
+        # Update artifacthub-pkg.yml with specified version
+        yq eval ".version = \"$VERSION\"" -i artifacthub-pkg.yml
+        yq eval ".appVersion = \"$VERSION\"" -i artifacthub-pkg.yml
+        yq eval ".containersImages[0].image = \"ghcr.io/${{ github.repository }}:v$VERSION\"" -i artifacthub-pkg.yml
+        
+        # Update install command with correct release version
+        INSTALL_CMD="kubectl apply -f https://github.com/${{ github.repository }}/releases/download/v$VERSION/akamai-operator.yaml"
+        yq eval ".install = \"$INSTALL_CMD\"" -i artifacthub-pkg.yml
+        
+        # Update timestamp if requested
+        if [[ "${{ github.event.inputs.update_timestamp }}" == "true" ]]; then
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          yq eval ".createdAt = \"$TIMESTAMP\"" -i artifacthub-pkg.yml
+        fi
+
+    - name: Update bundle metadata
+      run: |
+        # Update bundle annotations
+        yq eval ".annotations.\"operators.operatorframework.io/metrics.builder\" = \"operator-sdk-v1.34.1\"" -i bundle/metadata/annotations.yaml
+        yq eval ".annotations.\"operators.operatorframework.io/metrics.project_layout\" = \"go.kubebuilder.io/v4\"" -i bundle/metadata/annotations.yaml
+        
+        # Update ClusterServiceVersion name and version
+        CSV_FILE="bundle/manifests/akamai-operator.clusterserviceversion.yaml"
+        if [ -f "$CSV_FILE" ]; then
+          yq eval ".metadata.name = \"akamai-operator.v$VERSION\"" -i $CSV_FILE
+          yq eval ".spec.version = \"$VERSION\"" -i $CSV_FILE
+          
+          # Update container image in CSV
+          yq eval ".metadata.annotations.\"artifacthub.io/containersImages\" = \"- name: akamai-operator\n  image: ghcr.io/${{ github.repository }}:v$VERSION\"" -i $CSV_FILE
+          
+          # Update timestamp if requested
+          if [[ "${{ github.event.inputs.update_timestamp }}" == "true" ]]; then
+            TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            yq eval ".metadata.annotations.createdAt = \"$TIMESTAMP\"" -i $CSV_FILE
+          fi
+          
+          # Update alm-examples from sample file
+          if [ -f "config/samples/akamai_v1alpha1_akamaiproperty.yaml" ]; then
+            # Convert sample YAML to JSON for alm-examples
+            SAMPLE_JSON=$(yq eval -o=json config/samples/akamai_v1alpha1_akamaiproperty.yaml | jq -c .)
+            ALM_EXAMPLES="[$SAMPLE_JSON]"
+            yq eval ".metadata.annotations.\"alm-examples\" = \"$ALM_EXAMPLES\"" -i $CSV_FILE
+          fi
+        fi
+
+    - name: Validate updated files
+      run: |
+        echo "=== Updated artifacthub-pkg.yml ==="
+        cat artifacthub-pkg.yml
+        
+        echo -e "\n=== Updated bundle annotations ==="
+        cat bundle/metadata/annotations.yaml
+        
+        echo -e "\n=== Updated CSV metadata ==="
+        yq eval '.metadata.name, .spec.version, .metadata.annotations.createdAt' bundle/manifests/akamai-operator.clusterserviceversion.yaml
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: |
+          chore: update metadata to version ${{ env.VERSION }}
+          
+          - Update artifacthub-pkg.yml version to ${{ env.VERSION }}
+          - Update container image references to ghcr.io/${{ github.repository }}:${{ env.TAG }}
+          - Update bundle metadata and CSV version
+          - Update installation commands and links
+        title: "chore: update metadata to version ${{ env.VERSION }}"
+        body: |
+          ## Metadata Update to Version ${{ env.VERSION }}
+          
+          This PR updates the following metadata files:
+          
+          ### Changes Made:
+          - ✅ **artifacthub-pkg.yml**: Updated version and container image
+          - ✅ **bundle/metadata/annotations.yaml**: Updated operator-sdk version
+          - ✅ **bundle/manifests/akamai-operator.clusterserviceversion.yaml**: Updated CSV version and metadata
+          
+          ### Updated Fields:
+          - Version: `${{ env.VERSION }}`
+          - Container Image: `ghcr.io/${{ github.repository }}:${{ env.TAG }}`
+          - Install Command: Updated to use release ${{ env.TAG }}
+          ${{ github.event.inputs.update_timestamp == 'true' && '- Timestamps: Updated to current time' || '- Timestamps: Preserved existing values' }}
+          
+          ### ArtifactHub Impact:
+          This update ensures ArtifactHub displays the correct:
+          - Package version information
+          - Installation instructions  
+          - Container image references
+          - Bundle metadata
+          
+          **Ready for Review**: This PR was automatically generated and can be merged after validation.
+        branch: update-metadata-${{ env.VERSION }}
+        delete-branch: true
