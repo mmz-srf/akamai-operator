@@ -1,18 +1,18 @@
 # Artifact Hub package metadata file
 # https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-pkg.yml
-version: 0.3.0
+version: 0.3.1
 name: akamai-operator
 displayName: Akamai Operator
-createdAt: "2025-10-30T12:00:00Z"
+createdAt: "2025-11-02T22:17:58Z"
 description: Kubernetes operator for managing Akamai Properties through the Property Manager API with automated activation support
 logoURL: https://www.akamai.com/favicon.ico
 digest: ""
 license: Apache-2.0
 homeURL: https://github.com/mmz-srf/akamai-operator
-appVersion: 0.3.0
+appVersion: 0.3.1
 containersImages:
   - name: akamai-operator
-    image: akamai/akamai-operator:v0.3.0
+    image: ghcr.io/mmz-srf/akamai-operator:v0.3.1
 operator: true
 deprecated: false
 keywords:
@@ -34,5 +34,5 @@ maintainers:
     email: ""
 recommendations:
   - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
-install: | 
-  kubectl apply -f https://github.com/mmz-srf/akamai-operator/releases/latest/download/akamai-operator.yaml
+install: |-
+  kubectl apply -f https://github.com/mmz-srf/akamai-operator/releases/download/latest/akamai-operator.yaml
