@@ -130,6 +130,41 @@ The `AkamaiProperty` custom resource supports the following specifications:
 - `edgeHostname`: Edge hostname configuration
 - `activation`: Activation configuration for deploying the property to Akamai networks
 
+### Hostnames Configuration
+
+```yaml
+hostnames:
+  - cnameFrom: "example.com"
+    cnameTo: "example.com.edgesuite.net"
+    certProvisioningType: "CPS_MANAGED"
+```
+
+### Rules Configuration
+
+The rules system supports nested rules with criteria and behaviors:
+
+```yaml
+rules:
+  name: "default"
+  behaviors:
+    - name: "origin"
+      options:
+        originType: "CUSTOMER"
+        hostname: "origin.example.com"
+  children:
+    - name: "Static Assets"
+      criteria:
+        - name: "fileExtension"
+          options:
+            matchOperator: "IS_ONE_OF"
+            values: ["css", "js", "png"]
+      behaviors:
+        - name: "caching"
+          options:
+            behavior: "MAX_AGE"
+            ttl: "7d"
+```
+
 ### Activation Configuration
 
 The operator supports automatic activation of properties to Akamai's staging and production networks:
@@ -172,42 +207,6 @@ The operator provides detailed activation status in the resource status:
 - `productionActivationId`: ID of the current production activation
 - `stagingActivationStatus`: Status of staging activation (PENDING, ACTIVE, FAILED)
 - `productionActivationStatus`: Status of production activation (PENDING, ACTIVE, FAILED)
-
-### Hostnames Configuration
-
-```yaml
-hostnames:
-  - cnameFrom: "example.com"
-    cnameTo: "example.com.edgesuite.net"
-    certProvisioningType: "CPS_MANAGED"
-```
-
-### Rules Configuration
-
-The rules system supports nested rules with criteria and behaviors:
-
-```yaml
-rules:
-  name: "default"
-  behaviors:
-    - name: "origin"
-      options:
-        originType: "CUSTOMER"
-        hostname: "origin.example.com"
-  children:
-    - name: "Static Assets"
-      criteria:
-        - name: "fileExtension"
-          options:
-            matchOperator: "IS_ONE_OF"
-            values: ["css", "js", "png"]
-      behaviors:
-        - name: "caching"
-          options:
-            behavior: "MAX_AGE"
-            ttl: "7d"
-```
-
 
 ## Authentication
 
