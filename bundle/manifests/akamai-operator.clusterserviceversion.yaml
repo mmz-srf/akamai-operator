@@ -2,9 +2,9 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[]'
+    alm-examples: '[{"apiVersion":"akamai.com/v1alpha1","kind":"AkamaiProperty","metadata":{"labels":{"app.kubernetes.io/name":"akamaiproperty","app.kubernetes.io/instance":"akamaiproperty-sample","app.kubernetes.io/part-of":"akamai-operator","app.kubernetes.io/managed-by":"kustomize","app.kubernetes.io/created-by":"akamai-operator"},"name":"akamaiproperty-sample"},"spec":{"propertyName":"example.com","contractId":"ctr_C-1234567","groupId":"grp_12345","productId":"prd_Fresca","hostnames":[{"cnameFrom":"example.com","cnameTo":"example.com.edgesuite.net","certProvisioningType":"CPS_MANAGED"},{"cnameFrom":"www.example.com","cnameTo":"example.com.edgesuite.net","certProvisioningType":"CPS_MANAGED"}],"edgeHostname":{"domainPrefix":"example.com","domainSuffix":"edgesuite.net","secureNetwork":"STANDARD_TLS","ipVersionBehavior":"IPV4_IPV6"},"rules":{"name":"default","behaviors":[{"name":"origin","options":{"originType":"CUSTOMER","hostname":"origin.example.com","forwardHostHeader":"REQUEST_HOST_HEADER","cacheKeyHostname":"ORIGIN_HOSTNAME","compress":true,"enableTrueClientIp":true,"trueClientIpHeader":"True-Client-IP"}},{"name":"cpCode","options":{"value":{"id":123456}}},{"name":"caching","options":{"behavior":"MAX_AGE","mustRevalidate":false,"ttl":"1d"}}],"children":[{"name":"Static Assets","criteria":[{"name":"fileExtension","options":{"matchOperator":"IS_ONE_OF","values":["css","js","png","jpg","jpeg","gif","ico","svg","woff","woff2"]}}],"behaviors":[{"name":"caching","options":{"behavior":"MAX_AGE","mustRevalidate":false,"ttl":"7d"}},{"name":"prefreshCache","options":{"enabled":true,"prefreshTime":90}}]},{"name":"Dynamic Content","criteria":[{"name":"fileExtension","options":{"matchOperator":"IS_ONE_OF","values":["html","jsp","php","asp"]}}],"behaviors":[{"name":"caching","options":{"behavior":"NO_STORE"}}]}]},"activation":{"network":"STAGING","notifyEmails":["admin@example.com","devops@example.com"],"note":"Automated activation via Kubernetes operator","acknowledgeAllWarnings":true,"fastPush":true,"ignoreHttpErrors":true}}}]'
     capabilities: Basic Install
-    createdAt: "2025-11-02T22:18:08Z"
+    createdAt: "2025-11-03T11:35:25Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/mmz-srf/akamai-operator
@@ -18,8 +18,8 @@ spec:
     Manager API
   displayName: Akamai Operator
   icon:
-  - base64data: ""
-    mediatype: ""
+  - base64data: PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PHBhdGggZD0iTTUwLjEyNSA0Ni44NjZoLTYuMDQ3TDQ5LjYyIDM1Ljc4em0uNTA0IDUuMDRsLjUwNCA0LjUzNWg3LjA1NWwtMi41Mi0yNS43SDQ1LjA4NWwtMTMuMTAyIDI1LjdoNy4wNTVsMi4wMTYtNC41MzV6IiBmaWxsPSIjZjc5NzFkIi8+PHBhdGggZD0iTTM1LjAwNyA2Mi40ODhDMjEuOTA0IDU4LjQ1NyAxMi4zMyA0Ni4zNjIgMTIuMzMgMzIuMjUyYzAtMTQuNjE0IDkuNTc1LTI2LjcgMjMuMTgtMzAuNzRDMzcuMDIyIDEuMDA4IDM2LjUxOCAwIDM1LjAwNyAwIDE2Ljg2NS41MDQgMi43NTUgMTQuNjE0IDIuNzU1IDMyLjI1MlMxNi44NjUgNjQgMzUuMDA3IDY0YzEuNTEyIDAgMS41MTItMS4wMDggMC0xLjUxMnptLTE2LjYzLTIzLjE4di0yLjUyYzAtMTQuMSAxMS4wODctMjUuMTk3IDI1LjE5Ny0yNS4xOTcgMTMuMTAyIDAgMTcuMTM0IDYuMDQ3IDE3LjYzOCA1LjU0M1M1Ni42NzYgNS4wNCA0MS4wNTQgNS4wNGMtMTQuMSAwLTI1LjE5NyAxMS4wODctMjUuMTk3IDI1LjE5NyAwIDMuMDI0LjUwNCA2LjA0NyAxLjUxMiA5LjA3LjUwNCAxLjUxMiAxLjAwOCAxLjUxMiAxLjAwOCAwek0yOC45NiAyMS4xNjVjNi41NS0zLjAyNCAxNC42MTQtMy4wMjQgMjIuNjc3IDAgNS41NDMgMi4wMTYgOC41NjcgNC41MzUgOS4wNyA0LjUzNXMtMy4wMjQtNi4wNDctOS41NzUtOC41NjdjLTguMDYyLTMuMDMzLTE2LjEyNS0xLjUtMjIuNjc3IDMuNTI3LS41MDQuNTA0IDAgMS4wMDguNTA0LjUwNHoiIGZpbGw9IiMwMDk1ZDYiLz48L3N2Zz4=
+    mediatype: svg+xml
   install:
     spec:
       deployments: []

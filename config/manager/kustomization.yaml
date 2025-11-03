@@ -8,5 +8,5 @@ resources:
 
 images:
 - name: controller
-  newName: controller
-  newTag: latest
+  newName: ghcr.io/mmz-srf/akamai-operator
+  newTag: v0.3.1

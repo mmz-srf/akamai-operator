@@ -139,6 +139,17 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(OPERATOR_SDK) generate kustomize manifests --package=akamai-operator --apis-dir=api --interactive=false -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	@echo "Populating alm-examples from sample files..."
+	@if [ -f "config/samples/akamai_v1alpha1_akamaiproperty.yaml" ] && [ -f "bundle/manifests/akamai-operator.clusterserviceversion.yaml" ]; then \
+		yq eval -o=json config/samples/akamai_v1alpha1_akamaiproperty.yaml > .sample.json; \
+		COMPACT_JSON=$$(jq -c '.' .sample.json); \
+		ALM_EXAMPLES="[$$COMPACT_JSON]"; \
+		sed -i.bak "s|alm-examples: '\[\]'|alm-examples: '$$ALM_EXAMPLES'|" bundle/manifests/akamai-operator.clusterserviceversion.yaml; \
+		rm -f .sample.json bundle/manifests/akamai-operator.clusterserviceversion.yaml.bak; \
+		echo "✓ Updated alm-examples in ClusterServiceVersion"; \
+	else \
+		echo "⚠ Sample file or CSV not found, skipping alm-examples update"; \
+	fi
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
