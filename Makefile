@@ -139,6 +139,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(OPERATOR_SDK) generate kustomize manifests --package=akamai-operator --apis-dir=api --interactive=false -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	
 	@echo "Populating alm-examples from sample files..."
 	@if [ -f "config/samples/akamai_v1alpha1_akamaiproperty.yaml" ] && [ -f "bundle/manifests/akamai-operator.clusterserviceversion.yaml" ]; then \
 		yq eval -o=json config/samples/akamai_v1alpha1_akamaiproperty.yaml > .sample.json; \
@@ -150,6 +151,21 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	else \
 		echo "⚠ Sample file or CSV not found, skipping alm-examples update"; \
 	fi
+	
+	@echo "Populating description from README.md..."
+	@if [ -f "README.md" ] && [ -f "bundle/manifests/akamai-operator.clusterserviceversion.yaml" ]; then \
+		cp README.md .readme_desc.txt; \
+		if [ -s .readme_desc.txt ]; then \
+			awk '/^  description:/ {print "  description: |"; while ((getline line < ".readme_desc.txt") > 0) print "    " line; close(".readme_desc.txt"); next} 1' bundle/manifests/akamai-operator.clusterserviceversion.yaml > .tmp_csv.yaml && mv .tmp_csv.yaml bundle/manifests/akamai-operator.clusterserviceversion.yaml; \
+			echo "✓ Updated description with full README.md as multiline YAML literal block"; \
+		else \
+			echo "⚠ No description content found in README.md"; \
+		fi; \
+		rm -f .readme_desc.txt; \
+	else \
+		echo "⚠ README.md or CSV not found, skipping description update"; \
+	fi
+
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
