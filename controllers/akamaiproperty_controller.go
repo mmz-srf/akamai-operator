@@ -67,7 +67,7 @@ func (r *AkamaiPropertyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		akamaiClient, err := akamai.NewClient()
 		if err != nil {
 			logger.Error(err, "Failed to create Akamai client")
-			r.updateStatus(ctx, &akamaiProperty, PhaseError, "Failed to initialize Akamai client", err.Error())
+			r.updateStatus(ctx, &akamaiProperty, PhaseError, "FailedToInitializeAkamaiClient", err.Error())
 			return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
 		}
 		r.AkamaiClient = akamaiClient
@@ -99,12 +99,12 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 	if akamaiProperty.Status.PropertyID == "" {
 		// Property doesn't exist, create it
 		logger.Info("Creating new Akamai property", "propertyName", akamaiProperty.Spec.PropertyName)
-		r.updateStatus(ctx, akamaiProperty, PhaseCreating, "Creating Akamai property", "")
+		r.updateStatus(ctx, akamaiProperty, PhaseCreating, "CreatingAkamaiProperty", "")
 
 		propertyID, err := r.AkamaiClient.CreateProperty(ctx, &akamaiProperty.Spec)
 		if err != nil {
 			logger.Error(err, "Failed to create Akamai property")
-			r.updateStatus(ctx, akamaiProperty, PhaseError, "Failed to create property", err.Error())
+			r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToCreateProperty", err.Error())
 			return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 		}
 
@@ -117,7 +117,7 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		}
 
 		logger.Info("Successfully created Akamai property", "propertyID", propertyID)
-		r.updateStatus(ctx, akamaiProperty, PhaseReady, "Property created successfully", "")
+		r.updateStatus(ctx, akamaiProperty, PhaseReady, "PropertyCreatedSuccessfully", "")
 		return ctrl.Result{RequeueAfter: time.Minute * 10}, nil
 	}
 
@@ -125,19 +125,19 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 	currentProperty, err := r.AkamaiClient.GetProperty(ctx, akamaiProperty.Status.PropertyID)
 	if err != nil {
 		logger.Error(err, "Failed to get Akamai property")
-		r.updateStatus(ctx, akamaiProperty, PhaseError, "Failed to retrieve property", err.Error())
+		r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToRetrieveProperty", err.Error())
 		return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 	}
 
 	// Check if property needs to be updated
 	if r.needsUpdate(akamaiProperty, currentProperty) {
 		logger.Info("Updating Akamai property", "propertyID", akamaiProperty.Status.PropertyID)
-		r.updateStatus(ctx, akamaiProperty, PhaseUpdating, "Updating Akamai property", "")
+		r.updateStatus(ctx, akamaiProperty, PhaseUpdating, "UpdatingAkamaiProperty", "")
 
 		newVersion, err := r.AkamaiClient.UpdateProperty(ctx, akamaiProperty.Status.PropertyID, &akamaiProperty.Spec)
 		if err != nil {
 			logger.Error(err, "Failed to update Akamai property")
-			r.updateStatus(ctx, akamaiProperty, PhaseError, "Failed to update property", err.Error())
+			r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToUpdateProperty", err.Error())
 			return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 		}
 
@@ -154,7 +154,7 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		activationResult, err := r.handleActivation(ctx, akamaiProperty)
 		if err != nil {
 			logger.Error(err, "Failed to handle activation")
-			r.updateStatus(ctx, akamaiProperty, PhaseError, "Failed to handle activation", err.Error())
+			r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToHandleActivation", err.Error())
 			return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 		}
 		if activationResult.Requeue {
@@ -162,7 +162,7 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		}
 	}
 
-	r.updateStatus(ctx, akamaiProperty, PhaseReady, "Property is ready", "")
+	r.updateStatus(ctx, akamaiProperty, PhaseReady, "PropertyIsReady", "")
 	return ctrl.Result{RequeueAfter: time.Minute * 30}, nil
 }
 
@@ -172,7 +172,7 @@ func (r *AkamaiPropertyReconciler) handleDeletion(ctx context.Context, akamaiPro
 
 	if controllerutil.ContainsFinalizer(akamaiProperty, FinalizerName) {
 		// Update status to indicate deletion is in progress
-		r.updateStatus(ctx, akamaiProperty, PhaseDeleting, "Deleting Akamai property", "")
+		r.updateStatus(ctx, akamaiProperty, PhaseDeleting, "DeletingAkamaiProperty", "")
 
 		// Delete the property from Akamai if it exists
 		if akamaiProperty.Status.PropertyID != "" {
@@ -181,7 +181,7 @@ func (r *AkamaiPropertyReconciler) handleDeletion(ctx context.Context, akamaiPro
 			err := r.AkamaiClient.DeleteProperty(ctx, akamaiProperty.Status.PropertyID)
 			if err != nil {
 				logger.Error(err, "Failed to delete Akamai property")
-				r.updateStatus(ctx, akamaiProperty, PhaseError, "Failed to delete property", err.Error())
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToDeleteProperty", err.Error())
 				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 			}
 
@@ -239,12 +239,12 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				return ctrl.Result{}, nil
 			} else if activation.Status == "FAILED" {
 				logger.Error(nil, "Activation failed", "network", activationSpec.Network, "activationID", currentActivationID)
-				r.updateStatus(ctx, akamaiProperty, PhaseError, "Activation failed", "Check activation logs")
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "ActivationFailed", "Check activation logs")
 				return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
 			} else {
 				// Still in progress
 				logger.Info("Activation in progress", "network", activationSpec.Network, "status", activation.Status)
-				r.updateStatus(ctx, akamaiProperty, PhaseActivating, "Activation in progress", fmt.Sprintf("Status: %s", activation.Status))
+				r.updateStatus(ctx, akamaiProperty, PhaseActivating, "ActivationInProgress", fmt.Sprintf("Status: %s", activation.Status))
 				return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
 			}
 		} else {
@@ -264,7 +264,7 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 
 	if needsActivation {
 		logger.Info("Starting property activation", "network", activationSpec.Network, "version", versionToActivate)
-		r.updateStatus(ctx, akamaiProperty, PhaseActivating, "Starting activation", fmt.Sprintf("Activating version %d on %s", versionToActivate, activationSpec.Network))
+		r.updateStatus(ctx, akamaiProperty, PhaseActivating, "StartingActivation", fmt.Sprintf("Activating version %d on %s", versionToActivate, activationSpec.Network))
 
 		activationID, err := r.AkamaiClient.ActivateProperty(ctx, akamaiProperty.Status.PropertyID, versionToActivate, activationSpec)
 		if err != nil {
