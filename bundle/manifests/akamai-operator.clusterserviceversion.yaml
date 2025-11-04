@@ -4,12 +4,12 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    createdAt: "2025-11-04T09:35:27Z"
+    createdAt: "2025-11-04T12:50:12Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/mmz-srf/akamai-operator
     support: SRF
-  name: akamai-operator.v0.3.2
+  name: akamai-operator.v0.3.3
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -393,4 +393,4 @@ spec:
   provider:
     name: Akamai Technologies
     url: https://www.akamai.com
-  version: 0.3.2
+  version: 0.3.3
