@@ -2,6 +2,7 @@ package akamai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -272,6 +273,119 @@ func (c *Client) ActivateProperty(ctx context.Context, propertyID string, versio
 	// Extract activation ID from the activation link
 	activationID := extractActivationIDFromLink(activationResp.ActivationLink)
 	return activationID, nil
+}
+
+// PropertyRules represents a property rule tree response from Akamai
+type PropertyRules struct {
+	AccountID       string      `json:"accountId"`
+	ContractID      string      `json:"contractId"`
+	GroupID         string      `json:"groupId"`
+	PropertyID      string      `json:"propertyId"`
+	PropertyVersion int         `json:"propertyVersion"`
+	Etag            string      `json:"etag"`
+	RuleFormat      string      `json:"ruleFormat"`
+	Rules           interface{} `json:"rules"`
+}
+
+// GetPropertyRules retrieves the rule tree for a property version
+func (c *Client) GetPropertyRules(ctx context.Context, propertyID string, version int, contractID, groupID string) (*PropertyRules, error) {
+	// Get property rules using GetRuleTree
+	getRulesResp, err := c.papiClient.GetRuleTree(ctx, papi.GetRuleTreeRequest{
+		PropertyID:      propertyID,
+		PropertyVersion: version,
+		ContractID:      contractID,
+		GroupID:         groupID,
+		ValidateRules:   false, // Skip validation for faster response
+		ValidateMode:    "fast",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get property rules: %w", err)
+	}
+
+	if getRulesResp == nil {
+		return nil, fmt.Errorf("empty response from get property rules API")
+	}
+
+	// Convert PAPI response to our PropertyRules structure
+	propertyRules := &PropertyRules{
+		AccountID:       getRulesResp.AccountID,
+		ContractID:      getRulesResp.ContractID,
+		GroupID:         getRulesResp.GroupID,
+		PropertyID:      getRulesResp.PropertyID,
+		PropertyVersion: getRulesResp.PropertyVersion,
+		Etag:            getRulesResp.Etag,
+		RuleFormat:      getRulesResp.RuleFormat,
+		Rules:           getRulesResp.Rules,
+	}
+
+	return propertyRules, nil
+}
+
+// UpdatePropertyRules updates the rule tree for a property version
+func (c *Client) UpdatePropertyRules(ctx context.Context, propertyID string, version int, contractID, groupID string, rules interface{}, etag string) (*PropertyRules, error) {
+	// Convert interface{} to papi.Rules - we expect it to be a proper Rules structure
+	var papiRules papi.Rules
+	switch r := rules.(type) {
+	case papi.Rules:
+		papiRules = r
+	case map[string]interface{}:
+		// For flexibility, allow map input and try to marshal/unmarshal
+		// This is not type-safe but allows for dynamic rule structures
+		// In a production environment, you might want stricter typing
+		ruleBytes, err := json.Marshal(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal rules: %w", err)
+		}
+		if err := json.Unmarshal(ruleBytes, &papiRules); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal rules to papi.Rules: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported rules type: %T", rules)
+	}
+
+	// Update property rules using UpdateRuleTree
+	updateResp, err := c.papiClient.UpdateRuleTree(ctx, papi.UpdateRulesRequest{
+		PropertyID:      propertyID,
+		PropertyVersion: version,
+		ContractID:      contractID,
+		GroupID:         groupID,
+		Rules: papi.RulesUpdate{
+			Rules: papiRules,
+		},
+		ValidateRules: true,   // Enable validation for safety
+		ValidateMode:  "fast", // Use fast validation
+		DryRun:        false,  // Actually apply the changes
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update property rules: %w", err)
+	}
+
+	if updateResp == nil {
+		return nil, fmt.Errorf("empty response from update property rules API")
+	}
+
+	// Convert response to our PropertyRules structure
+	propertyRules := &PropertyRules{
+		AccountID:       updateResp.AccountID,
+		ContractID:      updateResp.ContractID,
+		GroupID:         updateResp.GroupID,
+		PropertyID:      updateResp.PropertyID,
+		PropertyVersion: updateResp.PropertyVersion,
+		Etag:            updateResp.Etag,
+		RuleFormat:      updateResp.RuleFormat,
+		Rules:           updateResp.Rules,
+	}
+
+	// Check for validation errors or warnings
+	if len(updateResp.Errors) > 0 {
+		var errorMessages []string
+		for _, ruleError := range updateResp.Errors {
+			errorMessages = append(errorMessages, fmt.Sprintf("%s: %s", ruleError.Title, ruleError.Detail))
+		}
+		return propertyRules, fmt.Errorf("rule validation errors: %v", errorMessages)
+	}
+
+	return propertyRules, nil
 }
 
 // GetActivation retrieves the status of a property activation

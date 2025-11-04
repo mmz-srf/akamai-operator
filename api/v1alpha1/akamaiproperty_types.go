@@ -51,9 +51,13 @@ type Hostname struct {
 }
 
 // PropertyRules contains the rules configuration for the property
+// This represents the complete rule tree structure as returned by Akamai API
 type PropertyRules struct {
-	// Name is the name of the rule
+	// Name is the name of the rule (required for top-level rule to be "default")
 	Name string `json:"name"`
+
+	// Comment is a descriptive comment to help track the rule's function
+	Comment string `json:"comment,omitempty"`
 
 	// Criteria defines the match criteria for the rule
 	Criteria []RuleCriteria `json:"criteria,omitempty"`
@@ -61,29 +65,76 @@ type PropertyRules struct {
 	// Behaviors defines the behaviors to apply when criteria match
 	Behaviors []RuleBehavior `json:"behaviors,omitempty"`
 
-	// Children contains nested rules as raw JSON to avoid recursive type issues
+	// Children contains nested rules
+	Children []PropertyRules `json:"children,omitempty"`
+
+	// Variables declares variables used in the rule tree
+	Variables []RuleVariable `json:"variables,omitempty"`
+
+	// Options contains rule-level options (e.g., is_secure for top-level rule)
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Children runtime.RawExtension `json:"children,omitempty"`
+	Options runtime.RawExtension `json:"options,omitempty"`
+
+	// UUID is a data hash that indicates the rule contains advanced features
+	UUID string `json:"uuid,omitempty"`
+
+	// CriteriaLocked prohibits modifications to criteria objects in child rules
+	CriteriaLocked bool `json:"criteriaLocked,omitempty"`
+
+	// CustomOverride specifies post-processing XML metadata
+	// +kubebuilder:pruning:PreserveUnknownFields
+	CustomOverride runtime.RawExtension `json:"customOverride,omitempty"`
 }
 
 // RuleCriteria defines a criterion for rule matching
 type RuleCriteria struct {
-	// Name is the criterion type (e.g., "hostname", "path")
+	// Name is the criterion type (e.g., "hostname", "path", "requestMethod")
 	Name string `json:"name"`
 
-	// Options contains the criterion configuration
+	// Options contains the criterion configuration as flexible key-value pairs
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Options map[string]string `json:"options,omitempty"`
+	Options runtime.RawExtension `json:"options,omitempty"`
+
+	// Locked indicates a criterion that is locked by Akamai representative
+	Locked bool `json:"locked,omitempty"`
+
+	// UUID is a data hash that indicates an advanced criterion
+	UUID string `json:"uuid,omitempty"`
 }
 
 // RuleBehavior defines a behavior to apply
 type RuleBehavior struct {
-	// Name is the behavior type (e.g., "origin", "caching")
+	// Name is the behavior type (e.g., "origin", "caching", "compress")
 	Name string `json:"name"`
 
-	// Options contains the behavior configuration
+	// Options contains the behavior configuration as flexible key-value pairs
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Options map[string]string `json:"options,omitempty"`
+	Options runtime.RawExtension `json:"options,omitempty"`
+
+	// Locked indicates a behavior that is locked by Akamai representative
+	Locked bool `json:"locked,omitempty"`
+
+	// UUID is a data hash that indicates an advanced behavior
+	UUID string `json:"uuid,omitempty"`
+}
+
+// RuleVariable declares a variable used in the rule tree
+type RuleVariable struct {
+	// Name is the unique name of the variable
+	Name string `json:"name"`
+
+	// Value initializes a default value (omitting initializes with empty string)
+	Value string `json:"value,omitempty"`
+
+	// Description is text to track how the variable is used
+	Description string `json:"description,omitempty"`
+
+	// Hidden suppresses the variable from session response headers
+	Hidden bool `json:"hidden,omitempty"`
+
+	// Sensitive suppresses the variable from session responses and prevents
+	// use in cookies/headers. Use for personally identifiable information.
+	Sensitive bool `json:"sensitive,omitempty"`
 }
 
 // EdgeHostnameSpec defines the edge hostname configuration
