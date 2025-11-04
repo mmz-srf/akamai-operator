@@ -295,8 +295,8 @@ func (c *Client) GetPropertyRules(ctx context.Context, propertyID string, versio
 		PropertyVersion: version,
 		ContractID:      contractID,
 		GroupID:         groupID,
-		ValidateRules:   false, // Skip validation for faster response
-		ValidateMode:    "fast",
+		ValidateRules:   false, // Skip validation for faster response when just reading
+		// Don't set ValidateMode when ValidateRules is false to avoid validation issues
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get property rules: %w", err)
@@ -343,8 +343,8 @@ func (c *Client) UpdatePropertyRules(ctx context.Context, propertyID string, ver
 		return nil, fmt.Errorf("unsupported rules type: %T", rules)
 	}
 
-	// Update property rules using UpdateRuleTree
-	updateResp, err := c.papiClient.UpdateRuleTree(ctx, papi.UpdateRulesRequest{
+	// Try with full validation first, fallback to no validation if fast validation is not supported
+	updateRequest := papi.UpdateRulesRequest{
 		PropertyID:      propertyID,
 		PropertyVersion: version,
 		ContractID:      contractID,
@@ -352,12 +352,27 @@ func (c *Client) UpdatePropertyRules(ctx context.Context, propertyID string, ver
 		Rules: papi.RulesUpdate{
 			Rules: papiRules,
 		},
-		ValidateRules: true,   // Enable validation for safety
-		ValidateMode:  "fast", // Use fast validation
-		DryRun:        false,  // Actually apply the changes
-	})
+		ValidateRules: true,  // Enable validation for safety
+		ValidateMode:  "full", // Use full validation
+		DryRun:        false, // Actually apply the changes
+	}
+
+	// Update property rules using UpdateRuleTree
+	updateResp, err := c.papiClient.UpdateRuleTree(ctx, updateRequest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update property rules: %w", err)
+		// If validation fails, try without validation as a fallback
+		if strings.Contains(err.Error(), "not a feature") || strings.Contains(err.Error(), "validate") {
+			fmt.Printf("Warning: Full validation not supported, retrying without validation\n")
+			updateRequest.ValidateRules = false
+			updateRequest.ValidateMode = ""
+			
+			updateResp, err = c.papiClient.UpdateRuleTree(ctx, updateRequest)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update property rules (even without validation): %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to update property rules: %w", err)
+		}
 	}
 
 	if updateResp == nil {

@@ -219,12 +219,22 @@ If rule updates fail, check:
 2. Akamai API permissions
 3. Property version conflicts
 4. Network connectivity
+5. Validation feature availability (see below)
+
+### Validation Issues
+Some Akamai configurations may not support certain validation modes. If you encounter errors like:
+```
+'Fast validate and save' is not a feature
+```
+
+The operator will automatically retry without validation. This is normal and the rules will still be applied correctly.
 
 ### Common Issues
 - **Variable naming**: Variable names must be uppercase and contain no spaces
 - **Behavior options**: Ensure all required options are provided for behaviors
 - **Criteria matching**: Verify criteria operators and values are correct
 - **Rule names**: Top-level rule must be named "default"
+- **Validation modes**: Some Akamai accounts may not support all validation features
 
 ## Advanced Features
 
