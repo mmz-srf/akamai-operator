@@ -318,7 +318,7 @@ func (r *AkamaiPropertyReconciler) needsUpdate(desired *akamaiV1alpha1.AkamaiPro
 func (r *AkamaiPropertyReconciler) updateStatusWithRetry(ctx context.Context, akamaiProperty *akamaiV1alpha1.AkamaiProperty) error {
 	const maxRetries = 3
 	logger := log.FromContext(ctx)
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		// Get the latest version of the resource to avoid conflicts
 		var latest akamaiV1alpha1.AkamaiProperty
@@ -357,7 +357,7 @@ func (r *AkamaiPropertyReconciler) updateStatusWithRetry(ctx context.Context, ak
 		logger.V(1).Info("Successfully updated status")
 		return nil
 	}
-	
+
 	return fmt.Errorf("failed to update status after %d retries", maxRetries)
 }
 
@@ -365,7 +365,7 @@ func (r *AkamaiPropertyReconciler) updateStatusWithRetry(ctx context.Context, ak
 func (r *AkamaiPropertyReconciler) updateStatus(ctx context.Context, akamaiProperty *akamaiV1alpha1.AkamaiProperty, phase, reason, message string) {
 	const maxRetries = 3
 	logger := log.FromContext(ctx)
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		// Get the latest version of the resource to avoid conflicts
 		var latest akamaiV1alpha1.AkamaiProperty
