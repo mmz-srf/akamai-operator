@@ -119,9 +119,20 @@ func NewClient() (*Client, error) {
 		return nil, fmt.Errorf("missing Akamai credentials in environment variables")
 	}
 
-	// Ensure host has https:// prefix
+	// Validate credential formats
+	if len(clientToken) < 20 || len(clientSecret) < 20 || len(accessToken) < 20 {
+		return nil, fmt.Errorf("invalid Akamai credentials: tokens appear to be too short")
+	}
+
+	// Ensure host has https:// prefix and remove any trailing slashes
 	if !strings.HasPrefix(host, "https://") {
 		host = "https://" + host
+	}
+	host = strings.TrimSuffix(host, "/")
+
+	// Validate host format
+	if !strings.Contains(host, "akamaiapis.net") {
+		return nil, fmt.Errorf("invalid Akamai host: must contain 'akamaiapis.net'")
 	}
 
 	return &Client{
@@ -460,31 +471,52 @@ func (c *Client) signRequest(req *http.Request, body []byte) error {
 	timestamp := time.Now().UTC().Format("20060102T15:04:05+0000")
 	nonce := generateNonce()
 
-	// Create the auth header
-	authHeader := fmt.Sprintf("EG1-HMAC-SHA256 client_token=%s;access_token=%s;timestamp=%s;nonce=%s;",
+	// Headers to include in the signature (typically empty for most requests)
+	headersToSign := []string{}
+
+	// Create the auth header without signature first
+	authHeader := fmt.Sprintf("EG1-HMAC-SHA256 client_token=%s;access_token=%s;timestamp=%s;nonce=%s",
 		c.Credentials.ClientToken, c.Credentials.AccessToken, timestamp, nonce)
 
-	// Create the string to sign
+	// Add headers to sign if any
+	if len(headersToSign) > 0 {
+		authHeader += ";headers=" + strings.Join(headersToSign, " ")
+	}
+
+	// Parse URL for the signing process
 	parsedURL, err := url.Parse(req.URL.String())
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %w", err)
 	}
 
-	path := parsedURL.Path
+	// Construct the relative URL (path + query)
+	relativePath := parsedURL.Path
 	if parsedURL.RawQuery != "" {
-		path += "?" + parsedURL.RawQuery
+		relativePath += "?" + parsedURL.RawQuery
 	}
 
 	// Create content hash if body exists
 	contentHash := ""
-	if body != nil && len(body) > 0 {
+	if len(body) > 0 {
 		hasher := sha256.New()
 		hasher.Write(body)
 		contentHash = base64.StdEncoding.EncodeToString(hasher.Sum(nil))
 	}
 
+	// Normalize headers to sign
+	normalizedHeaders := ""
+	if len(headersToSign) > 0 {
+		normalizedHeaders = normalizeHeaders(req.Header, headersToSign)
+	}
+
+	// Create the string to sign according to EdgeGrid specification
 	stringToSign := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s",
-		req.Method, parsedURL.Scheme, parsedURL.Host, path, authHeader, contentHash)
+		req.Method,
+		parsedURL.Scheme,
+		parsedURL.Host,
+		relativePath,
+		normalizedHeaders,
+		contentHash)
 
 	// Create the signing key
 	signingKey := hmac.New(sha256.New, []byte(c.Credentials.ClientSecret))
@@ -496,8 +528,8 @@ func (c *Client) signRequest(req *http.Request, body []byte) error {
 	signature.Write([]byte(stringToSign))
 	signatureB64 := base64.StdEncoding.EncodeToString(signature.Sum(nil))
 
-	// Set the authorization header
-	authHeader += "signature=" + signatureB64
+	// Complete the authorization header with signature
+	authHeader += ";signature=" + signatureB64
 	req.Header.Set("Authorization", authHeader)
 
 	return nil
@@ -505,26 +537,33 @@ func (c *Client) signRequest(req *http.Request, body []byte) error {
 
 // generateNonce generates a random nonce for the request
 func generateNonce() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	// Use a combination of timestamp and random element for better uniqueness
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), time.Now().UnixMicro()%100000)
 }
 
 // normalizeHeaders normalizes HTTP headers for signing
 func normalizeHeaders(headers http.Header, headersToSign []string) string {
+	if len(headersToSign) == 0 {
+		return ""
+	}
+
 	var normalized []string
 	headerMap := make(map[string]string)
 
 	// Convert headers to lowercase map
 	for key, values := range headers {
-		headerMap[strings.ToLower(key)] = strings.Join(values, ",")
+		headerMap[strings.ToLower(key)] = strings.TrimSpace(strings.Join(values, ","))
 	}
 
-	// Sort headers to sign
-	sort.Strings(headersToSign)
+	// Sort headers to sign (case-insensitive)
+	sort.Slice(headersToSign, func(i, j int) bool {
+		return strings.ToLower(headersToSign[i]) < strings.ToLower(headersToSign[j])
+	})
 
 	// Build normalized header string
 	for _, header := range headersToSign {
 		if value, exists := headerMap[strings.ToLower(header)]; exists {
-			normalized = append(normalized, fmt.Sprintf("%s:%s", strings.ToLower(header), strings.TrimSpace(value)))
+			normalized = append(normalized, fmt.Sprintf("%s:%s", strings.ToLower(header), value))
 		}
 	}
 
