@@ -147,6 +147,8 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		}
 
 		logger.Info("Successfully updated Akamai property", "propertyID", akamaiProperty.Status.PropertyID, "version", newVersion)
+	} else {
+		logger.V(1).Info("Property is up to date, no update needed", "propertyID", akamaiProperty.Status.PropertyID)
 	}
 
 	// Handle activation if specified
@@ -308,10 +310,22 @@ func (r *AkamaiPropertyReconciler) updateActivationStatus(akamaiProperty *akamai
 
 // needsUpdate checks if the property needs to be updated
 func (r *AkamaiPropertyReconciler) needsUpdate(desired *akamaiV1alpha1.AkamaiProperty, current *akamai.Property) bool {
-	// This is a simplified comparison - in a real implementation, you would
-	// compare the relevant fields between the desired spec and current state
-	return desired.Spec.PropertyName != current.PropertyName ||
-		len(desired.Spec.Hostnames) != len(current.Hostnames)
+	logger := log.FromContext(context.Background())
+
+	// Compare property name
+	if desired.Spec.PropertyName != current.PropertyName {
+		logger.V(1).Info("Property name differs", "desired", desired.Spec.PropertyName, "current", current.PropertyName)
+		return true
+	}
+
+	// For now, don't compare hostnames as they might be managed separately
+	// In a real implementation, you would fetch and compare actual property configuration
+	// like rules, hostnames, etc. from the property version
+
+	// Since we're not implementing full property configuration management yet,
+	// we'll only update if the basic property metadata differs
+	logger.V(1).Info("Property is up to date", "propertyName", current.PropertyName)
+	return false
 }
 
 // updateStatusWithRetry updates the status with retry logic for resource conflicts
