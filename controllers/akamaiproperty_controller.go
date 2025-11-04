@@ -266,7 +266,7 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 		logger.Info("Starting property activation", "network", activationSpec.Network, "version", versionToActivate)
 		r.updateStatus(ctx, akamaiProperty, PhaseActivating, "StartingActivation", fmt.Sprintf("Activating version %d on %s", versionToActivate, activationSpec.Network))
 
-		activationID, err := r.AkamaiClient.ActivateProperty(ctx, akamaiProperty.Status.PropertyID, versionToActivate, activationSpec)
+		activationID, err := r.AkamaiClient.ActivateProperty(ctx, akamaiProperty.Status.PropertyID, versionToActivate, activationSpec, akamaiProperty.Spec.ContractID, akamaiProperty.Spec.GroupID)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to activate property: %w", err)
 		}
