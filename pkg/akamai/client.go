@@ -352,9 +352,9 @@ func (c *Client) UpdatePropertyRules(ctx context.Context, propertyID string, ver
 		Rules: papi.RulesUpdate{
 			Rules: papiRules,
 		},
-		ValidateRules: true,  // Enable validation for safety
+		ValidateRules: true,   // Enable validation for safety
 		ValidateMode:  "full", // Use full validation
-		DryRun:        false, // Actually apply the changes
+		DryRun:        false,  // Actually apply the changes
 	}
 
 	// Update property rules using UpdateRuleTree
@@ -365,7 +365,7 @@ func (c *Client) UpdatePropertyRules(ctx context.Context, propertyID string, ver
 			fmt.Printf("Warning: Full validation not supported, retrying without validation\n")
 			updateRequest.ValidateRules = false
 			updateRequest.ValidateMode = ""
-			
+
 			updateResp, err = c.papiClient.UpdateRuleTree(ctx, updateRequest)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update property rules (even without validation): %w", err)

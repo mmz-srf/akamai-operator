@@ -56,11 +56,14 @@ type PropertyRules struct {
 	// Name is the name of the rule (required for top-level rule to be "default")
 	Name string `json:"name"`
 
-	// Comment is a descriptive comment to help track the rule's function
-	Comment string `json:"comment,omitempty"`
+	// Comments is a descriptive comment to help track the rule's function
+	Comments string `json:"comments,omitempty"`
 
 	// Criteria defines the match criteria for the rule
 	Criteria []RuleCriteria `json:"criteria,omitempty"`
+
+	// CriteriaMustSatisfy defines how criteria are evaluated (all, any)
+	CriteriaMustSatisfy string `json:"criteriaMustSatisfy,omitempty"`
 
 	// Behaviors defines the behaviors to apply when criteria match
 	Behaviors []RuleBehavior `json:"behaviors,omitempty"`
