@@ -52,6 +52,7 @@ type Hostname struct {
 
 // PropertyRules contains the rules configuration for the property
 // This represents the complete rule tree structure as returned by Akamai API
+// +kubebuilder:pruning:PreserveUnknownFields
 type PropertyRules struct {
 	// Name is the name of the rule (required for top-level rule to be "default")
 	Name string `json:"name"`
@@ -68,8 +69,9 @@ type PropertyRules struct {
 	// Behaviors defines the behaviors to apply when criteria match
 	Behaviors []RuleBehavior `json:"behaviors,omitempty"`
 
-	// Children contains nested rules
-	Children []PropertyRules `json:"children,omitempty"`
+	// Children contains nested rules as raw JSON to avoid recursive type issues
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Children []runtime.RawExtension `json:"children,omitempty"`
 
 	// Variables declares variables used in the rule tree
 	Variables []RuleVariable `json:"variables,omitempty"`

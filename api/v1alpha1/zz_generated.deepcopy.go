@@ -208,7 +208,7 @@ func (in *PropertyRules) DeepCopyInto(out *PropertyRules) {
 	}
 	if in.Children != nil {
 		in, out := &in.Children, &out.Children
-		*out = make([]PropertyRules, len(*in))
+		*out = make([]runtime.RawExtension, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

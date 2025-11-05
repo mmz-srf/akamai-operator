@@ -476,7 +476,13 @@ func (r *AkamaiPropertyReconciler) validatePropertyRules(rules *akamaiV1alpha1.P
 	}
 
 	// Recursively validate child rules
-	for i, child := range rules.Children {
+	for i, childRaw := range rules.Children {
+		// Unmarshal the raw child into a PropertyRules struct for validation
+		var child akamaiV1alpha1.PropertyRules
+		if err := json.Unmarshal(childRaw.Raw, &child); err != nil {
+			return fmt.Errorf("invalid child rule at index %d: failed to parse child rule: %w", i, err)
+		}
+		
 		if err := r.validatePropertyRules(&child); err != nil {
 			return fmt.Errorf("invalid child rule at index %d: %w", i, err)
 		}
