@@ -74,7 +74,7 @@ func (r *AkamaiPropertyReconciler) updateStatus(ctx context.Context, akamaiPrope
 
 		// Check if status actually needs to be updated
 		statusChanged := false
-		
+
 		// Check if phase changed
 		if latest.Status.Phase != phase {
 			statusChanged = true
@@ -83,7 +83,7 @@ func (r *AkamaiPropertyReconciler) updateStatus(ctx context.Context, akamaiPrope
 		// Update the status on the latest version
 		now := metav1.NewTime(time.Now())
 		latest.Status.Phase = phase
-		
+
 		// Only update LastUpdated timestamp if status actually changed
 		if statusChanged {
 			latest.Status.LastUpdated = &now

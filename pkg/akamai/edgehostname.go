@@ -165,21 +165,14 @@ func (c *Client) EnsureEdgeHostnamesExist(ctx context.Context, hostnames []akama
 			// Edge hostname doesn't exist
 			// If we have an edgeHostnameSpec, use it to create the edge hostname
 			if edgeHostnameSpec != nil {
-				// Extract prefix and suffix from the edge hostname
-				// For example: "example.com.edgesuite.net" -> prefix: "example.com", suffix: "edgesuite.net"
-				parts := strings.SplitN(edgeHostname, ".", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid edge hostname format: %s", edgeHostname)
+				// Verify that the edge hostname matches the spec
+				expectedEdgeHostname := edgeHostnameSpec.DomainPrefix + "." + edgeHostnameSpec.DomainSuffix
+				if edgeHostname != expectedEdgeHostname {
+					return fmt.Errorf("edge hostname %s does not match the edgeHostname spec (%s). Please ensure all hostname cnameTo values match the edgeHostname configuration", edgeHostname, expectedEdgeHostname)
 				}
 
-				spec := &akamaiV1alpha1.EdgeHostnameSpec{
-					DomainPrefix:      parts[0],
-					DomainSuffix:      parts[1],
-					SecureNetwork:     edgeHostnameSpec.SecureNetwork,
-					IPVersionBehavior: edgeHostnameSpec.IPVersionBehavior,
-				}
-
-				_, err := c.CreateEdgeHostname(ctx, spec, productID, contractID, groupID)
+				// Use the edgeHostnameSpec directly (don't parse from the string)
+				_, err := c.CreateEdgeHostname(ctx, edgeHostnameSpec, productID, contractID, groupID)
 				if err != nil {
 					return fmt.Errorf("failed to create edge hostname %s: %w", edgeHostname, err)
 				}
