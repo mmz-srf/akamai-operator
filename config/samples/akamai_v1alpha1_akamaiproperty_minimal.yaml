@@ -10,7 +10,16 @@ spec:
   contractId: "ctr_C-1234567"  # Replace with your contract ID
   groupId: "grp_12345"         # Replace with your group ID
   productId: "prd_Fresca"      # Product ID for delivery
-  
+
+  # Edge hostname configuration - used for auto-creation
+  # If any hostname references an edge hostname that doesn't exist,
+  # the operator will create it using this configuration
+  #edgeHostname:
+  #  domainPrefix: "my-website.com"
+  #  domainSuffix: "edgesuite.net"
+  #  secureNetwork: "ENHANCED_TLS"  # Options: ENHANCED_TLS, STANDARD_TLS
+  #  ipVersionBehavior: "IPV4"      # Options: IPV4, IPV6_COMPLIANCE, IPV6_PERFORMANCE
+
   # Edge hostname configuration
   hostnames:
     - cnameFrom: "my-website.com"

@@ -125,6 +125,33 @@ Validates complex scenarios with multiple hostnames and modifications.
 go test ./pkg/akamai -run TestCompareHostnamesWithMultipleHostnames -v
 ```
 
+#### Test: `TestExtractEdgeHostnameComponents`
+
+Validates edge hostname parsing logic.
+
+**Run this test:**
+```bash
+go test ./pkg/akamai -run TestExtractEdgeHostnameComponents -v
+```
+
+#### Test: `TestDetermineIfSecure`
+
+Validates logic for determining if an edge hostname should be secure based on domain suffix and configuration.
+
+**Run this test:**
+```bash
+go test ./pkg/akamai -run TestDetermineIfSecure -v
+```
+
+#### Test: `TestEdgeHostnameSpecValidation`
+
+Validates edge hostname specification validation logic.
+
+**Run this test:**
+```bash
+go test ./pkg/akamai -run TestEdgeHostnameSpecValidation -v
+```
+
 ### Rules Comparison Tests
 
 **Location:** `controllers/rules_comparison_test.go`

@@ -5,6 +5,7 @@ The Akamai Operator fully manages Property Hostnames using the Akamai Property M
 ## Overview
 
 The operator manages hostnames for Akamai properties by:
+- **Automatically creating edge hostnames** if they don't exist
 - Creating and updating hostnames when a property is created or modified
 - Detecting changes in hostname configuration and updating the property version
 - Supporting SSL certificate provisioning types
@@ -53,18 +54,31 @@ spec:
 
 When you create a new AkamaiProperty resource with hostnames:
 
-1. The operator creates the property in Akamai
-2. After creation, it sets the initial hostnames for version 1
-3. The property is now ready with the configured hostnames
+1. The operator checks if the referenced edge hostnames exist
+2. If edge hostnames don't exist and an `edgeHostname` spec is provided, they are created automatically
+3. The operator creates the property in Akamai
+4. After creation, it sets the initial hostnames for version 1
+5. The property is now ready with the configured hostnames
 
 ### Property Updates
 
 When you modify the hostnames in an existing AkamaiProperty:
 
 1. The operator detects the change by comparing desired vs current hostnames
-2. It creates a new property version
-3. It updates the hostnames for the new version
-4. The new version can then be activated
+2. It ensures any new edge hostnames exist (creating them if necessary)
+3. It creates a new property version
+4. It updates the hostnames for the new version
+5. The new version can then be activated
+
+### Edge Hostname Auto-Creation
+
+The operator can automatically create edge hostnames if they don't exist. When you specify hostnames with a `cnameTo` target that doesn't exist, the operator will:
+
+1. Check if the edge hostname exists in Akamai
+2. If not found and an `edgeHostname` spec is provided, create it using that configuration
+3. Use the created edge hostname for the property hostnames
+
+This feature simplifies property setup by eliminating the need to pre-create edge hostnames manually.
 
 ### Hostname Comparison
 
@@ -94,6 +108,34 @@ spec:
       cnameTo: "simple-site.com.edgesuite.net"
       certProvisioningType: "CPS_MANAGED"
 ```
+
+### With Automatic Edge Hostname Creation
+
+```yaml
+apiVersion: akamai.com/v1alpha1
+kind: AkamaiProperty
+metadata:
+  name: auto-edge-hostname
+spec:
+  propertyName: "my-website.com"
+  contractId: "ctr_C-1234567"
+  groupId: "grp_12345"
+  productId: "prd_Fresca"
+  
+  # Edge hostname configuration for auto-creation
+  edgeHostname:
+    domainPrefix: "my-website.com"
+    domainSuffix: "edgesuite.net"
+    secureNetwork: "ENHANCED_TLS"
+    ipVersionBehavior: "IPV4"
+  
+  hostnames:
+    - cnameFrom: "www.my-website.com"
+      cnameTo: "my-website.com.edgesuite.net"  # Will be created if it doesn't exist
+      certProvisioningType: "CPS_MANAGED"
+```
+
+**Note:** If the edge hostname `my-website.com.edgesuite.net` doesn't exist, the operator will create it using the `edgeHostname` specification.
 
 ### Multiple Hostnames
 

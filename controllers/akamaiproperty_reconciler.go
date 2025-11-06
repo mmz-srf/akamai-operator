@@ -22,6 +22,22 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		logger.Info("Creating new Akamai property", "propertyName", akamaiProperty.Spec.PropertyName)
 		r.updateStatus(ctx, akamaiProperty, PhaseCreating, "CreatingAkamaiProperty", "")
 
+		// Ensure edge hostnames exist before creating property with hostnames
+		if len(akamaiProperty.Spec.Hostnames) > 0 {
+			logger.Info("Ensuring edge hostnames exist", "count", len(akamaiProperty.Spec.Hostnames))
+			err := r.AkamaiClient.EnsureEdgeHostnamesExist(ctx,
+				akamaiProperty.Spec.Hostnames,
+				akamaiProperty.Spec.EdgeHostname,
+				akamaiProperty.Spec.ProductID,
+				akamaiProperty.Spec.ContractID,
+				akamaiProperty.Spec.GroupID)
+			if err != nil {
+				logger.Error(err, "Failed to ensure edge hostnames exist")
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToEnsureEdgeHostnames", err.Error())
+				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+			}
+		}
+
 		propertyID, err := r.AkamaiClient.CreateProperty(ctx, &akamaiProperty.Spec)
 		if err != nil {
 			logger.Error(err, "Failed to create Akamai property")
@@ -69,6 +85,22 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 	if r.needsUpdate(akamaiProperty, currentProperty) {
 		logger.Info("Updating Akamai property", "propertyID", akamaiProperty.Status.PropertyID)
 		r.updateStatus(ctx, akamaiProperty, PhaseUpdating, "UpdatingAkamaiProperty", "")
+
+		// Ensure edge hostnames exist before updating property with new hostnames
+		if len(akamaiProperty.Spec.Hostnames) > 0 {
+			logger.Info("Ensuring edge hostnames exist before update", "count", len(akamaiProperty.Spec.Hostnames))
+			err := r.AkamaiClient.EnsureEdgeHostnamesExist(ctx,
+				akamaiProperty.Spec.Hostnames,
+				akamaiProperty.Spec.EdgeHostname,
+				akamaiProperty.Spec.ProductID,
+				akamaiProperty.Spec.ContractID,
+				akamaiProperty.Spec.GroupID)
+			if err != nil {
+				logger.Error(err, "Failed to ensure edge hostnames exist")
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToEnsureEdgeHostnames", err.Error())
+				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+			}
+		}
 
 		newVersion, err := r.AkamaiClient.UpdateProperty(ctx, akamaiProperty.Status.PropertyID, &akamaiProperty.Spec)
 		if err != nil {
