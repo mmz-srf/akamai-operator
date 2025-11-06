@@ -1,3 +1,9 @@
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/akamai-operator)](https://artifacthub.io/packages/search?repo=akamai-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mmz-srf/akamai-operator)](https://goreportcard.com/report/github.com/mmz-srf/akamai-operator)
+[![GitHub Release](https://img.shields.io/github/release/mmz-srf/akamai-operator.svg)](https://github.com/mmz-srf/akamai-operator/releases/latest)
+[![License](https://img.shields.io/github/license/mmz-srf/akamai-operator.svg)](LICENSE)
+![OpenShift Compatibility](https://img.shields.io/badge/openshift-v4.15-ok?style=flat&logo=redhatopenshift)
+
 # Akamai Operator
 
 A Kubernetes operator for managing Akamai Properties through the Property Manager API. This operator is OLM (Operator Lifecycle Manager) compatible and allows you to manage Akamai edge delivery configurations as Kubernetes custom resources.
