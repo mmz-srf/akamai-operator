@@ -8,6 +8,8 @@
 
 A Kubernetes operator for managing Akamai Properties through the Property Manager API. This operator is OLM (Operator Lifecycle Manager) compatible and allows you to manage Akamai edge delivery configurations as Kubernetes custom resources.
 
+![Akamai Operator Architecture](docs/kubectl.png)
+
 ## Features
 
 - **Declarative Property Management**: Define Akamai properties as Kubernetes custom resources
