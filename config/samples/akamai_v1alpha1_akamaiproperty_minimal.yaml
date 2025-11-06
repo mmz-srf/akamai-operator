@@ -1,0 +1,49 @@
+apiVersion: akamai.com/v1alpha1
+kind: AkamaiProperty
+metadata:
+  name: mywebsite
+spec:
+  # The name of the Akamai property
+  propertyName: "my-website.com"
+
+  # Akamai contract information
+  contractId: "ctr_C-1234567"  # Replace with your contract ID
+  groupId: "grp_12345"         # Replace with your group ID
+  productId: "prd_Fresca"      # Product ID for delivery
+  
+  # Edge hostname configuration
+  hostnames:
+    - cnameFrom: "my-website.com"
+      cnameTo: "my-website.com.edgesuite.net"
+      certProvisioningType: "CPS_MANAGED"
+      
+  # Property rules configuration - Enhanced with comprehensive rule tree structure
+  rules:
+    name: "default"
+    children: []
+    criteria: []
+    criteriaMustSatisfy: all
+    comments: Identify your main traffic segments so you can granularly zoom in your traffic
+      statistics like hits, bandwidth, offloa
+    behaviors:
+      - name: "origin"
+        options:
+          originType: "CUSTOMER"
+          hostname: "origin.my-website.com"
+          forwardHostHeader: "REQUEST_HOST_HEADER"
+      - name: cpCode
+        options:
+          value:
+            id: 1234567
+            description: my-website.com
+            products:
+            - Fresca
+            - Site_Del
+            createdDate: 1237288269000
+            cpCodeLimits: 
+            name: my-website.com, response codes, and errors.
+
+      - name: caching
+        options:
+          behavior: NO_STORE
+

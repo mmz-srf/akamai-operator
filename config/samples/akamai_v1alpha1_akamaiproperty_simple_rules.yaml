@@ -1,0 +1,101 @@
+apiVersion: akamai.com/v1alpha1
+kind: AkamaiProperty
+metadata:
+  labels:
+    app.kubernetes.io/name: akamaiproperty
+    app.kubernetes.io/instance: akamaiproperty-simple-rules
+    app.kubernetes.io/part-of: akamai-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: akamai-operator
+  name: akamaiproperty-simple-rules
+spec:
+  # The name of the Akamai property
+  propertyName: "simple.example.com"
+  
+  # Akamai contract information
+  contractId: "ctr_C-1234567"  # Replace with your contract ID
+  groupId: "grp_12345"         # Replace with your group ID
+  productId: "prd_Fresca"      # Product ID for delivery
+  
+  # Hostnames configuration
+  hostnames:
+    - cnameFrom: "simple.example.com"
+      cnameTo: "simple.example.com.edgesuite.net"
+      certProvisioningType: "CPS_MANAGED"
+  
+  # Simple rules configuration demonstrating basic ruleset management
+  rules:
+    name: "default"
+    comment: "Simple rule configuration for demonstration"
+    
+    # Basic behaviors
+    behaviors:
+      - name: "origin"
+        comment: "Primary origin configuration"
+        options:
+          originType: "CUSTOMER"
+          hostname: "backend.example.com"
+          forwardHostHeader: "REQUEST_HOST_HEADER"
+          cacheKeyHostname: "ORIGIN_HOSTNAME"
+          compress: true
+          httpPort: 80
+          httpsPort: 443
+      
+      - name: "cpCode"
+        comment: "Content Provider Code for billing"
+        options:
+          value:
+            id: 123456  # Replace with your CP Code
+      
+      - name: "caching"
+        comment: "Default caching policy"
+        options:
+          behavior: "MAX_AGE"
+          mustRevalidate: false
+          ttl: "6h"
+    
+    # Simple child rules
+    children:
+      - name: "Static Content"
+        comment: "Cache static files longer"
+        criteria:
+          - name: "fileExtension"
+            options:
+              matchOperator: "IS_ONE_OF"
+              matchCaseSensitive: false
+              values:
+                - "css"
+                - "js"
+                - "png"
+                - "jpg"
+                - "gif"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "MAX_AGE"
+              mustRevalidate: false
+              ttl: "30d"
+      
+      - name: "No Cache Content"
+        comment: "Don't cache dynamic content"
+        criteria:
+          - name: "path"
+            options:
+              matchOperator: "MATCHES_ONE_OF"
+              matchCaseSensitive: false
+              values:
+                - "/admin/*"
+                - "/api/*"
+                - "/dynamic/*"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "NO_STORE"
+  
+  # Activation on staging for testing
+  activation:
+    network: "STAGING"
+    notifyEmails:
+      - "devops@example.com"
+    note: "Simple rules example - staging deployment"
+    acknowledgeAllWarnings: true

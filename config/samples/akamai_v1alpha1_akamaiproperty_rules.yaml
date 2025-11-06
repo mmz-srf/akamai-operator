@@ -1,0 +1,256 @@
+apiVersion: akamai.com/v1alpha1
+kind: AkamaiProperty
+metadata:
+  labels:
+    app.kubernetes.io/name: akamaiproperty
+    app.kubernetes.io/instance: akamaiproperty-sample
+    app.kubernetes.io/part-of: akamai-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: akamai-operator
+  name: akamaiproperty-sample
+spec:
+  # The name of the Akamai property
+  propertyName: "example.com"
+  
+  # Akamai contract information
+  contractId: "ctr_C-1234567"  # Replace with your contract ID
+  groupId: "grp_12345"         # Replace with your group ID
+  productId: "prd_Fresca"      # Product ID for delivery
+  
+  # Hostnames configuration
+  hostnames:
+    - cnameFrom: "example.com"
+      cnameTo: "example.com.edgesuite.net"
+      certProvisioningType: "CPS_MANAGED"
+    - cnameFrom: "www.example.com"
+      cnameTo: "example.com.edgesuite.net"
+      certProvisioningType: "CPS_MANAGED"
+  
+  # Edge hostname configuration
+  edgeHostname:
+    domainPrefix: "example.com"
+    domainSuffix: "edgesuite.net"
+    secureNetwork: "STANDARD_TLS"
+    ipVersionBehavior: "IPV4_IPV6"
+  
+  # Property rules configuration - Enhanced with comprehensive rule tree structure
+  rules:
+    name: "default"
+    comment: "Default rule for example.com property"
+    
+    # Global variables for the property
+    variables:
+      - name: "PMUSER_ORIGIN_HOST"
+        value: "origin.example.com"
+        description: "Primary origin hostname"
+        hidden: false
+        sensitive: false
+      - name: "PMUSER_CP_CODE"
+        value: "123456"
+        description: "Content Provider Code for billing and reporting"
+        hidden: false
+        sensitive: false
+    
+    # Top-level options
+    options:
+      is_secure: true
+    
+    # Default behaviors for all requests
+    behaviors:
+      - name: "origin"
+        comment: "Configure origin server"
+        options:
+          originType: "CUSTOMER"
+          hostname: "{{user.PMUSER_ORIGIN_HOST}}"
+          forwardHostHeader: "REQUEST_HOST_HEADER"
+          cacheKeyHostname: "ORIGIN_HOSTNAME"
+          compress: true
+          enableTrueClientIp: true
+          trueClientIpHeader: "True-Client-IP"
+          httpPort: 80
+          httpsPort: 443
+          originSni: true
+          verificationMode: "PLATFORM_SETTINGS"
+      
+      - name: "cpCode"
+        comment: "Set CP Code for billing and reporting"
+        options:
+          value:
+            id: "{{user.PMUSER_CP_CODE}}"
+      
+      - name: "caching"
+        comment: "Default caching behavior"
+        options:
+          behavior: "MAX_AGE"
+          mustRevalidate: false
+          ttl: "1d"
+      
+      - name: "responseCode"
+        comment: "Handle 404 errors gracefully"
+        options:
+          statusCode: 404
+          override404: true
+    
+    # Child rules for specific content types and scenarios
+    children:
+      - name: "Static Assets - Long Cache"
+        comment: "Cache static assets for longer periods"
+        criteria:
+          - name: "fileExtension"
+            options:
+              matchOperator: "IS_ONE_OF"
+              matchCaseSensitive: false
+              values:
+                - "css"
+                - "js"
+                - "png"
+                - "jpg"
+                - "jpeg"
+                - "gif"
+                - "ico"
+                - "svg"
+                - "woff"
+                - "woff2"
+                - "ttf"
+                - "eot"
+                - "pdf"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "MAX_AGE"
+              mustRevalidate: false
+              ttl: "7d"
+          - name: "prefreshCache"
+            options:
+              enabled: true
+              prefreshTime: 90
+          - name: "gzipResponse"
+            options:
+              behavior: "ALWAYS"
+      
+      - name: "API Endpoints"
+        comment: "Special handling for API endpoints"
+        criteria:
+          - name: "path"
+            options:
+              matchOperator: "MATCHES_ONE_OF"
+              matchCaseSensitive: false
+              values:
+                - "/api/*"
+                - "/v1/*"
+                - "/v2/*"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "NO_STORE"
+          - name: "corsSupport"
+            options:
+              enabled: true
+              allowOrigins:
+                - "*"
+              allowMethods:
+                - "GET"
+                - "POST"
+                - "PUT"
+                - "DELETE"
+                - "OPTIONS"
+              allowHeaders:
+                - "Content-Type"
+                - "Authorization"
+                - "X-Requested-With"
+      
+      - name: "Dynamic Content"
+        comment: "Cache dynamic content with shorter TTL"
+        criteria:
+          - name: "fileExtension"
+            options:
+              matchOperator: "IS_ONE_OF"
+              matchCaseSensitive: false
+              values:
+                - "html"
+                - "jsp"
+                - "php"
+                - "asp"
+        behaviors:
+          - name: "caching"
+            options:
+              behavior: "MAX_AGE"
+              mustRevalidate: true
+              ttl: "1h"
+      
+      - name: "Security Headers"
+        comment: "Add security headers to all responses"
+        criteria: []  # No criteria means this applies to all requests
+        behaviors:
+          - name: "modifyOutgoingResponseHeader"
+            options:
+              action: "ADD"
+              standardAddHeaderName: "X-Content-Type-Options"
+              headerValue: "nosniff"
+          - name: "modifyOutgoingResponseHeader"
+            options:
+              action: "ADD"
+              standardAddHeaderName: "X-Frame-Options"
+              headerValue: "SAMEORIGIN"
+          - name: "modifyOutgoingResponseHeader"
+            options:
+              action: "ADD"
+              standardAddHeaderName: "X-XSS-Protection"
+              headerValue: "1; mode=block"
+      
+      - name: "Mobile Optimization"
+        comment: "Optimize content for mobile devices"
+        criteria:
+          - name: "userAgent"
+            options:
+              matchOperator: "MATCHES_ONE_OF"
+              matchCaseSensitive: false
+              values:
+                - "*Mobile*"
+                - "*Android*"
+                - "*iPhone*"
+                - "*iPad*"
+        behaviors:
+          - name: "imageManager"
+            options:
+              enabled: true
+              applyBestFileType: true
+              resizeImages: true
+              allowPristine: false
+        children:
+          - name: "Image Compression for Mobile"
+            comment: "Extra image compression for mobile"
+            criteria:
+              - name: "fileExtension"
+                options:
+                  matchOperator: "IS_ONE_OF"
+                  values:
+                    - "jpg"
+                    - "jpeg"
+                    - "png"
+                    - "webp"
+            behaviors:
+              - name: "imageManager"
+                options:
+                  enabled: true
+                  applyBestFileType: true
+                  resizeImages: true
+                  allowPristine: false
+                  quality: 85
+  
+  # Activation configuration (optional)
+  activation:
+    # Network to activate on: STAGING or PRODUCTION
+    network: "STAGING"
+    # Email addresses to notify when activation status changes
+    notifyEmails:
+      - "admin@example.com"
+      - "devops@example.com"
+    # Descriptive note for this activation
+    note: "Automated activation via Kubernetes operator with enhanced rule management"
+    # Skip acknowledging individual warnings
+    acknowledgeAllWarnings: true
+    # Enable fast metadata push (recommended)
+    fastPush: true
+    # Ignore HTTP errors during fast metadata push
+    ignoreHttpErrors: true

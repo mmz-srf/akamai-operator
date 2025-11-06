@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        kubernetes-version: ['1.26.0', '1.27.0', '1.28.0']
+        kubernetes-version: ['1.33.0']
     steps:
     - name: Checkout
       uses: actions/checkout@v5
