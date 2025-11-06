@@ -4,12 +4,12 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    createdAt: "2025-11-06T14:27:28Z"
+    createdAt: "2025-11-06T22:14:12Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/mmz-srf/akamai-operator
     support: SRF
-  name: akamai-operator.v0.5.1
+  name: akamai-operator.v0.6.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -29,10 +29,12 @@ spec:
     
     - **Declarative Property Management**: Define Akamai properties as Kubernetes custom resources
     - **Full Lifecycle Management**: Create, update, and delete Akamai properties through Kubernetes
+    - **Hostname Management**: Automatic management of property hostnames and edge hostname assignments
     - **OLM Compatible**: Can be installed and managed through Operator Lifecycle Manager
     - **EdgeGrid Authentication**: Secure authentication using Akamai EdgeGrid
     - **Status Reporting**: Real-time status updates with property versions and deployment state
     - **Rule Configuration**: Support for complex property rules, behaviors, and criteria
+    - **Automatic Activation**: Optional automatic activation to staging and production networks
     
     ## Prerequisites
     
@@ -155,12 +157,24 @@ spec:
     
     ### Hostnames Configuration
     
+    The operator fully manages property hostnames, automatically detecting changes and updating property versions when hostnames are added, removed, or modified.
+    
     ```yaml
     hostnames:
-      - cnameFrom: "example.com"
+      - cnameFrom: "www.example.com"
         cnameTo: "example.com.edgesuite.net"
         certProvisioningType: "CPS_MANAGED"
+      - cnameFrom: "api.example.com"
+        cnameTo: "example.com.edgekey.net"
+        certProvisioningType: "CPS_MANAGED"
     ```
+    
+    **Fields:**
+    - `cnameFrom` (required): The hostname to serve through Akamai
+    - `cnameTo` (required): The edge hostname target
+    - `certProvisioningType` (optional): Certificate provisioning type (`CPS_MANAGED` or `DEFAULT`)
+    
+    See [HOSTNAME_MANAGEMENT.md](docs/HOSTNAME_MANAGEMENT.md) for detailed documentation.
     
     ### Rules Configuration
     
@@ -327,6 +341,23 @@ spec:
     make docker-build IMG=your-registry/akamai-operator:latest
     ```
     
+    ### Running Tests
+    
+    The project includes comprehensive unit tests for all major functionality:
+    
+    ```bash
+    # Run all tests
+    go test ./...
+    
+    # Run with verbose output
+    go test ./... -v
+    
+    # Run with coverage
+    go test ./... -cover
+    ```
+    
+    See [Testing Documentation](docs/TESTING.md) for detailed information about available tests and how to write new ones.
+    
     ### Local Development
     
     ```bash
@@ -390,4 +421,4 @@ spec:
   provider:
     name: Akamai Technologies
     url: https://www.akamai.com
-  version: 0.5.1
+  version: 0.6.0
