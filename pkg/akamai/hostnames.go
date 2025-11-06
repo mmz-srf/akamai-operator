@@ -52,6 +52,7 @@ func (c *Client) UpdatePropertyHostnames(ctx context.Context, propertyID, contra
 	papiHostnames := make([]papi.Hostname, 0, len(hostnames))
 	for _, h := range hostnames {
 		papiHostname := papi.Hostname{
+			CnameType:            papi.HostnameCnameTypeEdgeHostname,
 			CnameFrom:            h.CNAMEFrom,
 			CnameTo:              h.CNAMETo,
 			CertProvisioningType: h.CertProvisioningType,
@@ -83,6 +84,7 @@ func (c *Client) SetPropertyHostnames(ctx context.Context, propertyID, contractI
 	papiHostnames := make([]papi.Hostname, 0, len(hostnames))
 	for _, h := range hostnames {
 		papiHostname := papi.Hostname{
+			CnameType:            papi.HostnameCnameTypeEdgeHostname,
 			CnameFrom:            h.CNAMEFrom,
 			CnameTo:              h.CNAMETo,
 			CertProvisioningType: h.CertProvisioningType,
