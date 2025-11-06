@@ -324,6 +324,23 @@ make test
 make docker-build IMG=your-registry/akamai-operator:latest
 ```
 
+### Running Tests
+
+The project includes comprehensive unit tests for all major functionality:
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test ./... -v
+
+# Run with coverage
+go test ./... -cover
+```
+
+See [Testing Documentation](docs/TESTING.md) for detailed information about available tests and how to write new ones.
+
 ### Local Development
 
 ```bash
