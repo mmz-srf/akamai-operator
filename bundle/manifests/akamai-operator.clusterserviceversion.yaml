@@ -4,17 +4,23 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    createdAt: "2025-11-04T16:02:58Z"
+    createdAt: "2025-11-06T10:42:51Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/mmz-srf/akamai-operator
     support: SRF
-  name: akamai-operator.v0.4.2
+  name: akamai-operator.v0.5.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions: {}
   description: |
+    [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/akamai-operator)](https://artifacthub.io/packages/search?repo=akamai-operator)
+    [![Go Report Card](https://goreportcard.com/badge/github.com/mmz-srf/akamai-operator)](https://goreportcard.com/report/github.com/mmz-srf/akamai-operator)
+    [![GitHub Release](https://img.shields.io/github/release/mmz-srf/akamai-operator.svg)](https://github.com/mmz-srf/akamai-operator/releases/latest)
+    [![License](https://img.shields.io/github/license/mmz-srf/akamai-operator.svg)](LICENSE)
+    ![OpenShift Compatibility](https://img.shields.io/badge/openshift-v4.15-ok?style=flat&logo=redhatopenshift)
+    
     # Akamai Operator
     
     A Kubernetes operator for managing Akamai Properties through the Property Manager API. This operator is OLM (Operator Lifecycle Manager) compatible and allows you to manage Akamai edge delivery configurations as Kubernetes custom resources.
@@ -348,15 +354,6 @@ spec:
     3. Create a new issue with detailed information
     
     For Akamai API questions, consult the [Property Manager API documentation](https://techdocs.akamai.com/property-mgr/reference/post-properties).
-    
-    ## Roadmap
-    
-    - [ ] Support for property activation/deactivation
-    - [ ] Bulk property operations
-    - [ ] Advanced rule validation
-    - [ ] Integration with GitOps workflows
-    - [ ] Property backup and restore functionality
-    - [ ] Webhook support for property changes
     Manager API
   displayName: Akamai Operator
   icon:
@@ -393,4 +390,4 @@ spec:
   provider:
     name: Akamai Technologies
     url: https://www.akamai.com
-  version: 0.4.2
+  version: 0.5.0
