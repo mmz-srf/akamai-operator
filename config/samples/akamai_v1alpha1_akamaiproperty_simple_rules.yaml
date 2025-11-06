@@ -26,12 +26,12 @@ spec:
   # Simple rules configuration demonstrating basic ruleset management
   rules:
     name: "default"
-    comment: "Simple rule configuration for demonstration"
+    comments: "Simple rule configuration for demonstration"
     
     # Basic behaviors
     behaviors:
       - name: "origin"
-        comment: "Primary origin configuration"
+        comments: "Primary origin configuration"
         options:
           originType: "CUSTOMER"
           hostname: "backend.example.com"
@@ -42,13 +42,13 @@ spec:
           httpsPort: 443
       
       - name: "cpCode"
-        comment: "Content Provider Code for billing"
+        comments: "Content Provider Code for billing"
         options:
           value:
             id: 123456  # Replace with your CP Code
       
       - name: "caching"
-        comment: "Default caching policy"
+        comments: "Default caching policy"
         options:
           behavior: "MAX_AGE"
           mustRevalidate: false
@@ -57,7 +57,7 @@ spec:
     # Simple child rules
     children:
       - name: "Static Content"
-        comment: "Cache static files longer"
+        comments: "Cache static files longer"
         criteria:
           - name: "fileExtension"
             options:
@@ -77,7 +77,7 @@ spec:
               ttl: "30d"
       
       - name: "No Cache Content"
-        comment: "Don't cache dynamic content"
+        comments: "Don't cache dynamic content"
         criteria:
           - name: "path"
             options:
