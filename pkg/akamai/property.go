@@ -75,9 +75,19 @@ func (c *Client) GetProperty(ctx context.Context, propertyID string) (*Property,
 		property.ProductionVersion = *papiProperty.ProductionVersion
 	}
 
-	// Initialize empty hostnames slice for now
-	// In a real implementation, you'd get hostnames from the property version
-	property.Hostnames = []Hostname{}
+	// Get hostnames for the latest version
+	if property.LatestVersion > 0 {
+		hostnames, err := c.GetPropertyHostnames(ctx, propertyID, papiProperty.ContractID, papiProperty.GroupID, property.LatestVersion)
+		if err != nil {
+			// Log the error but don't fail the entire operation
+			// Hostnames might not be configured yet
+			property.Hostnames = []Hostname{}
+		} else {
+			property.Hostnames = hostnames
+		}
+	} else {
+		property.Hostnames = []Hostname{}
+	}
 
 	return property, nil
 }
@@ -115,8 +125,16 @@ func (c *Client) UpdateProperty(ctx context.Context, propertyID string, spec *ak
 		return 0, fmt.Errorf("failed to extract version number: %w", err)
 	}
 
-	// TODO: Update property rules, hostnames, etc. based on spec
-	// For now, just return the new version number
+	// Update hostnames if specified in spec
+	if len(spec.Hostnames) > 0 {
+		err = c.SetPropertyHostnames(ctx, propertyID, spec.ContractID, spec.GroupID, versionNumber, spec.Hostnames)
+		if err != nil {
+			return 0, fmt.Errorf("failed to update property hostnames: %w", err)
+		}
+	}
+
+	// TODO: Update property rules if needed
+	// Rules are handled separately by the controller
 
 	return versionNumber, nil
 }

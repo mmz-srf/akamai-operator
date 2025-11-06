@@ -72,10 +72,22 @@ func (r *AkamaiPropertyReconciler) updateStatus(ctx context.Context, akamaiPrope
 			continue
 		}
 
+		// Check if status actually needs to be updated
+		statusChanged := false
+
+		// Check if phase changed
+		if latest.Status.Phase != phase {
+			statusChanged = true
+		}
+
 		// Update the status on the latest version
 		now := metav1.NewTime(time.Now())
 		latest.Status.Phase = phase
-		latest.Status.LastUpdated = &now
+
+		// Only update LastUpdated timestamp if status actually changed
+		if statusChanged {
+			latest.Status.LastUpdated = &now
+		}
 
 		// Preserve existing status fields that might have been set elsewhere
 		if latest.Status.PropertyID == "" && akamaiProperty.Status.PropertyID != "" {
@@ -117,9 +129,20 @@ func (r *AkamaiPropertyReconciler) updateStatus(ctx context.Context, akamaiPrope
 		}
 
 		// Update or add the condition
+		conditionChanged := false
 		updated := false
 		for i, existingCondition := range latest.Status.Conditions {
 			if existingCondition.Type == condition.Type {
+				// Check if condition actually changed
+				if existingCondition.Status != condition.Status ||
+					existingCondition.Reason != condition.Reason ||
+					existingCondition.Message != condition.Message {
+					conditionChanged = true
+					condition.LastTransitionTime = now
+				} else {
+					// Preserve the existing LastTransitionTime if nothing changed
+					condition.LastTransitionTime = existingCondition.LastTransitionTime
+				}
 				latest.Status.Conditions[i] = condition
 				updated = true
 				break
@@ -127,6 +150,16 @@ func (r *AkamaiPropertyReconciler) updateStatus(ctx context.Context, akamaiPrope
 		}
 		if !updated {
 			latest.Status.Conditions = append(latest.Status.Conditions, condition)
+			conditionChanged = true
+		}
+
+		// If nothing changed, skip the update
+		if !statusChanged && !conditionChanged {
+			logger.V(1).Info("Status unchanged, skipping update", "phase", phase, "reason", reason)
+			// Still update the in-memory object for consistency
+			akamaiProperty.Status = latest.Status
+			akamaiProperty.ObjectMeta.ResourceVersion = latest.ObjectMeta.ResourceVersion
+			return
 		}
 
 		// Try to update the status

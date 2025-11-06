@@ -12,10 +12,12 @@ A Kubernetes operator for managing Akamai Properties through the Property Manage
 
 - **Declarative Property Management**: Define Akamai properties as Kubernetes custom resources
 - **Full Lifecycle Management**: Create, update, and delete Akamai properties through Kubernetes
+- **Hostname Management**: Automatic management of property hostnames and edge hostname assignments
 - **OLM Compatible**: Can be installed and managed through Operator Lifecycle Manager
 - **EdgeGrid Authentication**: Secure authentication using Akamai EdgeGrid
 - **Status Reporting**: Real-time status updates with property versions and deployment state
 - **Rule Configuration**: Support for complex property rules, behaviors, and criteria
+- **Automatic Activation**: Optional automatic activation to staging and production networks
 
 ## Prerequisites
 
@@ -138,12 +140,24 @@ The `AkamaiProperty` custom resource supports the following specifications:
 
 ### Hostnames Configuration
 
+The operator fully manages property hostnames, automatically detecting changes and updating property versions when hostnames are added, removed, or modified.
+
 ```yaml
 hostnames:
-  - cnameFrom: "example.com"
+  - cnameFrom: "www.example.com"
     cnameTo: "example.com.edgesuite.net"
     certProvisioningType: "CPS_MANAGED"
+  - cnameFrom: "api.example.com"
+    cnameTo: "example.com.edgekey.net"
+    certProvisioningType: "CPS_MANAGED"
 ```
+
+**Fields:**
+- `cnameFrom` (required): The hostname to serve through Akamai
+- `cnameTo` (required): The edge hostname target
+- `certProvisioningType` (optional): Certificate provisioning type (`CPS_MANAGED` or `DEFAULT`)
+
+See [HOSTNAME_MANAGEMENT.md](docs/HOSTNAME_MANAGEMENT.md) for detailed documentation.
 
 ### Rules Configuration
 
@@ -309,6 +323,23 @@ make test
 # Build Docker image
 make docker-build IMG=your-registry/akamai-operator:latest
 ```
+
+### Running Tests
+
+The project includes comprehensive unit tests for all major functionality:
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test ./... -v
+
+# Run with coverage
+go test ./... -cover
+```
+
+See [Testing Documentation](docs/TESTING.md) for detailed information about available tests and how to write new ones.
 
 ### Local Development
 

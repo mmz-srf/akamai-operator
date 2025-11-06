@@ -22,6 +22,22 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		logger.Info("Creating new Akamai property", "propertyName", akamaiProperty.Spec.PropertyName)
 		r.updateStatus(ctx, akamaiProperty, PhaseCreating, "CreatingAkamaiProperty", "")
 
+		// Ensure edge hostnames exist before creating property with hostnames
+		if len(akamaiProperty.Spec.Hostnames) > 0 {
+			logger.Info("Ensuring edge hostnames exist", "count", len(akamaiProperty.Spec.Hostnames))
+			err := r.AkamaiClient.EnsureEdgeHostnamesExist(ctx,
+				akamaiProperty.Spec.Hostnames,
+				akamaiProperty.Spec.EdgeHostname,
+				akamaiProperty.Spec.ProductID,
+				akamaiProperty.Spec.ContractID,
+				akamaiProperty.Spec.GroupID)
+			if err != nil {
+				logger.Error(err, "Failed to ensure edge hostnames exist")
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToEnsureEdgeHostnames", err.Error())
+				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+			}
+		}
+
 		propertyID, err := r.AkamaiClient.CreateProperty(ctx, &akamaiProperty.Spec)
 		if err != nil {
 			logger.Error(err, "Failed to create Akamai property")
@@ -35,6 +51,21 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 
 		if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
 			return ctrl.Result{}, err
+		}
+
+		// Update hostnames if specified after property creation
+		if len(akamaiProperty.Spec.Hostnames) > 0 {
+			err = r.AkamaiClient.SetPropertyHostnames(ctx, propertyID,
+				akamaiProperty.Spec.ContractID,
+				akamaiProperty.Spec.GroupID,
+				1, // Initial version is 1
+				akamaiProperty.Spec.Hostnames)
+			if err != nil {
+				logger.Error(err, "Failed to set initial hostnames")
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToSetInitialHostnames", err.Error())
+				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+			}
+			logger.Info("Successfully set initial hostnames", "count", len(akamaiProperty.Spec.Hostnames))
 		}
 
 		logger.Info("Successfully created Akamai property", "propertyID", propertyID)
@@ -54,6 +85,22 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 	if r.needsUpdate(akamaiProperty, currentProperty) {
 		logger.Info("Updating Akamai property", "propertyID", akamaiProperty.Status.PropertyID)
 		r.updateStatus(ctx, akamaiProperty, PhaseUpdating, "UpdatingAkamaiProperty", "")
+
+		// Ensure edge hostnames exist before updating property with new hostnames
+		if len(akamaiProperty.Spec.Hostnames) > 0 {
+			logger.Info("Ensuring edge hostnames exist before update", "count", len(akamaiProperty.Spec.Hostnames))
+			err := r.AkamaiClient.EnsureEdgeHostnamesExist(ctx,
+				akamaiProperty.Spec.Hostnames,
+				akamaiProperty.Spec.EdgeHostname,
+				akamaiProperty.Spec.ProductID,
+				akamaiProperty.Spec.ContractID,
+				akamaiProperty.Spec.GroupID)
+			if err != nil {
+				logger.Error(err, "Failed to ensure edge hostnames exist")
+				r.updateStatus(ctx, akamaiProperty, PhaseError, "FailedToEnsureEdgeHostnames", err.Error())
+				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+			}
+		}
 
 		newVersion, err := r.AkamaiClient.UpdateProperty(ctx, akamaiProperty.Status.PropertyID, &akamaiProperty.Spec)
 		if err != nil {
@@ -144,12 +191,17 @@ func (r *AkamaiPropertyReconciler) needsUpdate(desired *akamaiV1alpha1.AkamaiPro
 		return true
 	}
 
-	// For now, don't compare hostnames as they might be managed separately
-	// In a real implementation, you would fetch and compare actual property configuration
-	// like rules, hostnames, etc. from the property version
+	// Compare hostnames if specified in the desired state
+	if len(desired.Spec.Hostnames) > 0 {
+		if akamai.CompareHostnames(desired.Spec.Hostnames, current.Hostnames) {
+			logger.V(1).Info("Hostnames differ, update needed",
+				"desiredCount", len(desired.Spec.Hostnames),
+				"currentCount", len(current.Hostnames))
+			return true
+		}
+	}
 
-	// Since we're not implementing full property configuration management yet,
-	// we'll only update if the basic property metadata differs
+	// Property is up to date
 	logger.V(1).Info("Property is up to date", "propertyName", current.PropertyName)
 	return false
 }
