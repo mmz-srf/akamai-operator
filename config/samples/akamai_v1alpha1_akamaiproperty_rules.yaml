@@ -36,7 +36,7 @@ spec:
   # Property rules configuration - Enhanced with comprehensive rule tree structure
   rules:
     name: "default"
-    comment: "Default rule for example.com property"
+    comments: "Default rule for example.com property"
     
     # Global variables for the property
     variables:
@@ -58,7 +58,7 @@ spec:
     # Default behaviors for all requests
     behaviors:
       - name: "origin"
-        comment: "Configure origin server"
+        comments: "Configure origin server"
         options:
           originType: "CUSTOMER"
           hostname: "{{user.PMUSER_ORIGIN_HOST}}"
@@ -73,20 +73,20 @@ spec:
           verificationMode: "PLATFORM_SETTINGS"
       
       - name: "cpCode"
-        comment: "Set CP Code for billing and reporting"
+        comments: "Set CP Code for billing and reporting"
         options:
           value:
             id: "{{user.PMUSER_CP_CODE}}"
       
       - name: "caching"
-        comment: "Default caching behavior"
+        comments: "Default caching behavior"
         options:
           behavior: "MAX_AGE"
           mustRevalidate: false
           ttl: "1d"
       
       - name: "responseCode"
-        comment: "Handle 404 errors gracefully"
+        comments: "Handle 404 errors gracefully"
         options:
           statusCode: 404
           override404: true
@@ -94,7 +94,7 @@ spec:
     # Child rules for specific content types and scenarios
     children:
       - name: "Static Assets - Long Cache"
-        comment: "Cache static assets for longer periods"
+        comments: "Cache static assets for longer periods"
         criteria:
           - name: "fileExtension"
             options:
@@ -129,7 +129,7 @@ spec:
               behavior: "ALWAYS"
       
       - name: "API Endpoints"
-        comment: "Special handling for API endpoints"
+        comments: "Special handling for API endpoints"
         criteria:
           - name: "path"
             options:
@@ -160,7 +160,7 @@ spec:
                 - "X-Requested-With"
       
       - name: "Dynamic Content"
-        comment: "Cache dynamic content with shorter TTL"
+        comments: "Cache dynamic content with shorter TTL"
         criteria:
           - name: "fileExtension"
             options:
@@ -179,7 +179,7 @@ spec:
               ttl: "1h"
       
       - name: "Security Headers"
-        comment: "Add security headers to all responses"
+        comments: "Add security headers to all responses"
         criteria: []  # No criteria means this applies to all requests
         behaviors:
           - name: "modifyOutgoingResponseHeader"
@@ -199,7 +199,7 @@ spec:
               headerValue: "1; mode=block"
       
       - name: "Mobile Optimization"
-        comment: "Optimize content for mobile devices"
+        comments: "Optimize content for mobile devices"
         criteria:
           - name: "userAgent"
             options:
@@ -219,7 +219,7 @@ spec:
               allowPristine: false
         children:
           - name: "Image Compression for Mobile"
-            comment: "Extra image compression for mobile"
+            comments: "Extra image compression for mobile"
             criteria:
               - name: "fileExtension"
                 options:
