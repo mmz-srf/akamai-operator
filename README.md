@@ -337,12 +337,3 @@ For support questions, please:
 3. Create a new issue with detailed information
 
 For Akamai API questions, consult the [Property Manager API documentation](https://techdocs.akamai.com/property-mgr/reference/post-properties).
-
-## Roadmap
-
-- [ ] Support for property activation/deactivation
-- [ ] Bulk property operations
-- [ ] Advanced rule validation
-- [ ] Integration with GitOps workflows
-- [ ] Property backup and restore functionality
-- [ ] Webhook support for property changes
