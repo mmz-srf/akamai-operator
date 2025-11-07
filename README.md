@@ -2,7 +2,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/mmz-srf/akamai-operator)](https://goreportcard.com/report/github.com/mmz-srf/akamai-operator)
 [![GitHub Release](https://img.shields.io/github/release/mmz-srf/akamai-operator.svg)](https://github.com/mmz-srf/akamai-operator/releases/latest)
 [![License](https://img.shields.io/github/license/mmz-srf/akamai-operator.svg)](LICENSE)
-![OpenShift Compatibility](https://img.shields.io/badge/openshift-v4.15-ok?style=flat&logo=redhatopenshift)
+![OpenShift Compatibility](https://img.shields.io/badge/openshift-v4.19-ok?style=flat&logo=redhatopenshift)
 
 # Akamai Operator
 
