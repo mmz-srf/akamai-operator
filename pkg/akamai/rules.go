@@ -45,6 +45,16 @@ func (c *Client) GetPropertyRules(ctx context.Context, propertyID string, versio
 
 // UpdatePropertyRules updates the rule tree for a property version
 func (c *Client) UpdatePropertyRules(ctx context.Context, propertyID string, version int, contractID, groupID string, rules interface{}, etag string) (*PropertyRules, error) {
+	// Check if the version is published on staging or production
+	isPublished, network, err := c.IsVersionPublished(ctx, propertyID, version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if version is published: %w", err)
+	}
+
+	if isPublished {
+		return nil, fmt.Errorf("cannot update rules for version %d: it is currently published on %s", version, network)
+	}
+
 	// Convert interface{} to papi.Rules - we expect it to be a proper Rules structure
 	var papiRules papi.Rules
 	switch r := rules.(type) {

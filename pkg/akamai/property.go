@@ -92,6 +92,75 @@ func (c *Client) GetProperty(ctx context.Context, propertyID string) (*Property,
 	return property, nil
 }
 
+// IsVersionPublished checks if a specific property version is published on staging or production
+func (c *Client) IsVersionPublished(ctx context.Context, propertyID string, version int) (bool, string, error) {
+	// Get property details to check published versions
+	property, err := c.GetProperty(ctx, propertyID)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to get property: %w", err)
+	}
+
+	// Check if the version is published on staging
+	if property.StagingVersion == version {
+		return true, "STAGING", nil
+	}
+
+	// Check if the version is published on production
+	if property.ProductionVersion == version {
+		return true, "PRODUCTION", nil
+	}
+
+	return false, "", nil
+}
+
+// GetOrCreateUnpublishedVersion returns the latest version if it's not published,
+// or creates a new version if the latest is published
+func (c *Client) GetOrCreateUnpublishedVersion(ctx context.Context, propertyID, contractID, groupID string) (int, bool, error) {
+	// Get property details
+	property, err := c.GetProperty(ctx, propertyID)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to get property: %w", err)
+	}
+
+	// Check if the latest version is published
+	isPublished, _, err := c.IsVersionPublished(ctx, propertyID, property.LatestVersion)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to check if version is published: %w", err)
+	}
+
+	if !isPublished {
+		// Latest version is not published, we can use it
+		return property.LatestVersion, false, nil
+	}
+
+	// Latest version is published, create a new one
+	newVersionReq := papi.CreatePropertyVersionRequest{
+		PropertyID: propertyID,
+		ContractID: contractID,
+		GroupID:    groupID,
+		Version: papi.PropertyVersionCreate{
+			CreateFromVersion: property.LatestVersion,
+		},
+	}
+
+	newVersionResp, err := c.papiClient.CreatePropertyVersion(ctx, newVersionReq)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to create new property version: %w", err)
+	}
+
+	if newVersionResp == nil || newVersionResp.VersionLink == "" {
+		return 0, false, fmt.Errorf("invalid response from create property version API")
+	}
+
+	newVersion := newVersionResp.VersionLink
+	versionNumber, err := extractVersionFromLink(newVersion)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to extract version number: %w", err)
+	}
+
+	return versionNumber, true, nil
+}
+
 // UpdateProperty updates an existing property in Akamai
 func (c *Client) UpdateProperty(ctx context.Context, propertyID string, spec *akamaiV1alpha1.AkamaiPropertySpec) (int, error) {
 	// First, get the current property to get the latest version
@@ -100,34 +169,49 @@ func (c *Client) UpdateProperty(ctx context.Context, propertyID string, spec *ak
 		return 0, fmt.Errorf("failed to get current property: %w", err)
 	}
 
-	// Create a new version of the property
-	newVersionReq := papi.CreatePropertyVersionRequest{
-		PropertyID: propertyID,
-		ContractID: spec.ContractID,
-		GroupID:    spec.GroupID,
-		Version: papi.PropertyVersionCreate{
-			CreateFromVersion: property.LatestVersion,
-		},
-	}
-
-	newVersionResp, err := c.papiClient.CreatePropertyVersion(ctx, newVersionReq)
+	// Check if the latest version is published on staging or production
+	isPublished, network, err := c.IsVersionPublished(ctx, propertyID, property.LatestVersion)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create new property version: %w", err)
+		return 0, fmt.Errorf("failed to check if version is published: %w", err)
 	}
 
-	if newVersionResp == nil || newVersionResp.VersionLink == "" {
-		return 0, fmt.Errorf("invalid response from create property version API")
-	}
+	var versionToUpdate int
+	if isPublished {
+		// The latest version is published, we need to create a new version
+		// Create a new version of the property
+		newVersionReq := papi.CreatePropertyVersionRequest{
+			PropertyID: propertyID,
+			ContractID: spec.ContractID,
+			GroupID:    spec.GroupID,
+			Version: papi.PropertyVersionCreate{
+				CreateFromVersion: property.LatestVersion,
+			},
+		}
 
-	newVersion := newVersionResp.VersionLink
-	versionNumber, err := extractVersionFromLink(newVersion)
-	if err != nil {
-		return 0, fmt.Errorf("failed to extract version number: %w", err)
+		newVersionResp, err := c.papiClient.CreatePropertyVersion(ctx, newVersionReq)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create new property version (latest version %d is published on %s): %w", property.LatestVersion, network, err)
+		}
+
+		if newVersionResp == nil || newVersionResp.VersionLink == "" {
+			return 0, fmt.Errorf("invalid response from create property version API")
+		}
+
+		newVersion := newVersionResp.VersionLink
+		versionNumber, err := extractVersionFromLink(newVersion)
+		if err != nil {
+			return 0, fmt.Errorf("failed to extract version number: %w", err)
+		}
+
+		versionToUpdate = versionNumber
+	} else {
+		// The latest version is not published, we can update it directly
+		versionToUpdate = property.LatestVersion
 	}
 
 	// Update hostnames if specified in spec
 	if len(spec.Hostnames) > 0 {
-		err = c.SetPropertyHostnames(ctx, propertyID, spec.ContractID, spec.GroupID, versionNumber, spec.Hostnames)
+		err = c.SetPropertyHostnames(ctx, propertyID, spec.ContractID, spec.GroupID, versionToUpdate, spec.Hostnames)
 		if err != nil {
 			return 0, fmt.Errorf("failed to update property hostnames: %w", err)
 		}
@@ -136,7 +220,7 @@ func (c *Client) UpdateProperty(ctx context.Context, propertyID string, spec *ak
 	// TODO: Update property rules if needed
 	// Rules are handled separately by the controller
 
-	return versionNumber, nil
+	return versionToUpdate, nil
 }
 
 // DeleteProperty deletes a property from Akamai
