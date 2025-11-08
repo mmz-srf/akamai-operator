@@ -80,10 +80,19 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 
 		// Check if version is newer
 		versionChanged := versionToActivate > currentActiveVersion
-		// Check if note has changed (only if both old and new notes are non-empty)
-		// If there's no previous note stored, we don't consider it as a change
+		// Check if note has changed
+		// Note is considered changed if:
+		// 1. Both notes are non-empty and different, OR
+		// 2. We're setting a note where none existed before (lastNote empty, newNote non-empty)
 		noteChanged := false
 		if lastActivationNote != "" && activationSpec.Note != "" && activationSpec.Note != lastActivationNote {
+			// Both notes exist and are different
+			noteChanged = true
+		} else if lastActivationNote != "" && activationSpec.Note != "" && activationSpec.Note == lastActivationNote {
+			// Both notes exist and are the same - no change
+			noteChanged = false
+		} else if lastActivationNote == "" && activationSpec.Note != "" {
+			// Setting a note for the first time - this IS a change
 			noteChanged = true
 		}
 
