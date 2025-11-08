@@ -62,15 +62,28 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
 			}
 		} else {
-			// Check if we need to activate a newer version
+			// Check if we need to activate a newer version or if note has changed
 			var currentActiveVersion int
+			var lastActivationNote string
 			if activationSpec.Network == "STAGING" {
 				currentActiveVersion = akamaiProperty.Status.StagingVersion
+				lastActivationNote = akamaiProperty.Status.StagingActivationNote
 			} else {
 				currentActiveVersion = akamaiProperty.Status.ProductionVersion
+				lastActivationNote = akamaiProperty.Status.ProductionActivationNote
 			}
 
+			// Trigger activation if version is newer OR if note has changed
 			if versionToActivate > currentActiveVersion {
+				logger.Info("Activation needed: newer version available", 
+					"currentVersion", currentActiveVersion, 
+					"targetVersion", versionToActivate)
+				needsActivation = true
+			} else if versionToActivate == currentActiveVersion && activationSpec.Note != lastActivationNote {
+				logger.Info("Activation needed: note has changed",
+					"version", versionToActivate,
+					"oldNote", lastActivationNote,
+					"newNote", activationSpec.Note)
 				needsActivation = true
 			}
 		}
@@ -85,13 +98,15 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 			return ctrl.Result{}, fmt.Errorf("failed to activate property: %w", err)
 		}
 
-		// Update the activation ID and status
+		// Update the activation ID, status, and note
 		if activationSpec.Network == "STAGING" {
 			akamaiProperty.Status.StagingActivationID = activationID
 			akamaiProperty.Status.StagingActivationStatus = "PENDING"
+			akamaiProperty.Status.StagingActivationNote = activationSpec.Note
 		} else {
 			akamaiProperty.Status.ProductionActivationID = activationID
 			akamaiProperty.Status.ProductionActivationStatus = "PENDING"
+			akamaiProperty.Status.ProductionActivationNote = activationSpec.Note
 		}
 
 		if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
