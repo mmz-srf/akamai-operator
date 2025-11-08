@@ -83,9 +83,9 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 		// Check if note has changed
 		noteChanged := activationSpec.Note != lastActivationNote
 
-		// Trigger activation if:
-		// 1. Latest version is newer than currently active version (always activate latest)
-		// 2. Note has changed (re-activate with new note, even for same version)
+		// Trigger activation ONLY if BOTH conditions are met:
+		// 1. Latest version is newer than currently active version AND
+		// 2. Activation note has changed
 		if versionChanged && noteChanged {
 			logger.Info("Activation needed: newer version and note has changed",
 				"currentVersion", currentActiveVersion,
@@ -93,17 +93,16 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				"oldNote", lastActivationNote,
 				"newNote", activationSpec.Note)
 			needsActivation = true
-		} else if versionChanged {
-			logger.Info("Activation needed: newer version available",
+		} else if versionChanged && !noteChanged {
+			logger.Info("Activation skipped: newer version available but note has not changed",
 				"currentVersion", currentActiveVersion,
-				"targetVersion", versionToActivate)
-			needsActivation = true
-		} else if noteChanged {
-			logger.Info("Activation needed: note has changed for current version",
+				"targetVersion", versionToActivate,
+				"note", activationSpec.Note)
+		} else if !versionChanged && noteChanged {
+			logger.Info("Activation skipped: note has changed but no new version available",
 				"version", versionToActivate,
 				"oldNote", lastActivationNote,
 				"newNote", activationSpec.Note)
-			needsActivation = true
 		}
 	}
 
