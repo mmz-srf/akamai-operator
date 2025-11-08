@@ -48,9 +48,13 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 			// Update the status based on the current activation
 			r.updateActivationStatus(akamaiProperty, activationSpec.Network, activation)
 
+			if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			if activation.Status == "ACTIVE" {
 				logger.Info("Activation completed successfully", "network", activationSpec.Network, "version", activation.PropertyVersion)
-				return ctrl.Result{}, nil
+				// Don't return yet - fall through to check if a newer version needs activation
 			} else if activation.Status == "FAILED" {
 				logger.Error(nil, "Activation failed", "network", activationSpec.Network, "activationID", currentActivationID)
 				r.updateStatus(ctx, akamaiProperty, PhaseError, "ActivationFailed", "Check activation logs")
@@ -61,45 +65,45 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				r.updateStatus(ctx, akamaiProperty, PhaseActivating, "ActivationInProgress", fmt.Sprintf("Status: %s", activation.Status))
 				return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
 			}
+		}
+
+		// Check if we need to activate a newer version or if note has changed
+		var currentActiveVersion int
+		var lastActivationNote string
+		if activationSpec.Network == "STAGING" {
+			currentActiveVersion = akamaiProperty.Status.StagingVersion
+			lastActivationNote = akamaiProperty.Status.StagingActivationNote
 		} else {
-			// Check if we need to activate a newer version or if note has changed
-			var currentActiveVersion int
-			var lastActivationNote string
-			if activationSpec.Network == "STAGING" {
-				currentActiveVersion = akamaiProperty.Status.StagingVersion
-				lastActivationNote = akamaiProperty.Status.StagingActivationNote
-			} else {
-				currentActiveVersion = akamaiProperty.Status.ProductionVersion
-				lastActivationNote = akamaiProperty.Status.ProductionActivationNote
-			}
+			currentActiveVersion = akamaiProperty.Status.ProductionVersion
+			lastActivationNote = akamaiProperty.Status.ProductionActivationNote
+		}
 
-			// Check if version is newer
-			versionChanged := versionToActivate > currentActiveVersion
-			// Check if note has changed
-			noteChanged := activationSpec.Note != lastActivationNote
+		// Check if version is newer
+		versionChanged := versionToActivate > currentActiveVersion
+		// Check if note has changed
+		noteChanged := activationSpec.Note != lastActivationNote
 
-			// Trigger activation if:
-			// 1. Latest version is newer than currently active version (always activate latest)
-			// 2. Note has changed (re-activate with new note, even for same version)
-			if versionChanged && noteChanged {
-				logger.Info("Activation needed: newer version and note has changed",
-					"currentVersion", currentActiveVersion,
-					"targetVersion", versionToActivate,
-					"oldNote", lastActivationNote,
-					"newNote", activationSpec.Note)
-				needsActivation = true
-			} else if versionChanged {
-				logger.Info("Activation needed: newer version available",
-					"currentVersion", currentActiveVersion,
-					"targetVersion", versionToActivate)
-				needsActivation = true
-			} else if noteChanged {
-				logger.Info("Activation needed: note has changed for current version",
-					"version", versionToActivate,
-					"oldNote", lastActivationNote,
-					"newNote", activationSpec.Note)
-				needsActivation = true
-			}
+		// Trigger activation if:
+		// 1. Latest version is newer than currently active version (always activate latest)
+		// 2. Note has changed (re-activate with new note, even for same version)
+		if versionChanged && noteChanged {
+			logger.Info("Activation needed: newer version and note has changed",
+				"currentVersion", currentActiveVersion,
+				"targetVersion", versionToActivate,
+				"oldNote", lastActivationNote,
+				"newNote", activationSpec.Note)
+			needsActivation = true
+		} else if versionChanged {
+			logger.Info("Activation needed: newer version available",
+				"currentVersion", currentActiveVersion,
+				"targetVersion", versionToActivate)
+			needsActivation = true
+		} else if noteChanged {
+			logger.Info("Activation needed: note has changed for current version",
+				"version", versionToActivate,
+				"oldNote", lastActivationNote,
+				"newNote", activationSpec.Note)
+			needsActivation = true
 		}
 	}
 
