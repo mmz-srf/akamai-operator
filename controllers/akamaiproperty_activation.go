@@ -69,8 +69,25 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 						"newVersion", versionToActivate)
 					return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
 				}
-				// Old activation completed (ACTIVE/FAILED/etc), proceed to activate new version
-				needsActivation = true
+				// Old activation completed (ACTIVE/FAILED/etc)
+				// Only activate if the note has changed (to prevent auto-activation loops)
+				if activationNoteChanged {
+					logger.Info("Old activation complete and note changed, will activate new version",
+						"network", activationSpec.Network,
+						"oldVersion", activation.PropertyVersion,
+						"newVersion", versionToActivate)
+					needsActivation = true
+				} else {
+					logger.Info("Old activation complete but note unchanged, skipping activation",
+						"network", activationSpec.Network,
+						"latestVersion", versionToActivate,
+						"activeVersion", activation.PropertyVersion)
+				}
+			} else if activation.PropertyVersion == versionToActivate && (activation.Status == "PENDING" || activation.Status == "ACTIVATING") {
+				// Activation already in progress for current version, just monitor it
+				logger.Info("Activation in progress for current version", "network", activationSpec.Network, "status", activation.Status, "version", versionToActivate)
+				r.updateStatus(ctx, akamaiProperty, PhaseActivating, "ActivationInProgress", fmt.Sprintf("Status: %s", activation.Status))
+				return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
 			} else if activation.Status == "ACTIVE" {
 				logger.Info("Activation completed successfully", "network", activationSpec.Network, "version", activation.PropertyVersion)
 				return ctrl.Result{}, nil
