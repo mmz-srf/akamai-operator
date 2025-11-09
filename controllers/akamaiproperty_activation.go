@@ -48,7 +48,24 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 			// Update the status based on the current activation
 			r.updateActivationStatus(akamaiProperty, activationSpec.Network, activation)
 
-			if activation.Status == "ACTIVE" {
+			// Check if the in-progress activation is for an older version
+			if activation.PropertyVersion < versionToActivate {
+				logger.Info("Found activation for older version, will activate newer version after current completes",
+					"currentActivationVersion", activation.PropertyVersion,
+					"latestVersion", versionToActivate,
+					"activationStatus", activation.Status)
+				// If the old activation is still pending/activating, wait for it to complete
+				// before starting a new one to avoid conflicts
+				if activation.Status == "PENDING" || activation.Status == "ACTIVATING" {
+					logger.Info("Waiting for older activation to complete before activating newer version",
+						"network", activationSpec.Network,
+						"oldVersion", activation.PropertyVersion,
+						"newVersion", versionToActivate)
+					return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
+				}
+				// Old activation completed (ACTIVE/FAILED/etc), proceed to activate new version
+				needsActivation = true
+			} else if activation.Status == "ACTIVE" {
 				logger.Info("Activation completed successfully", "network", activationSpec.Network, "version", activation.PropertyVersion)
 				return ctrl.Result{}, nil
 			} else if activation.Status == "FAILED" {
@@ -56,7 +73,7 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				r.updateStatus(ctx, akamaiProperty, PhaseError, "ActivationFailed", "Check activation logs")
 				return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
 			} else {
-				// Still in progress
+				// Still in progress for current version
 				logger.Info("Activation in progress", "network", activationSpec.Network, "status", activation.Status)
 				r.updateStatus(ctx, akamaiProperty, PhaseActivating, "ActivationInProgress", fmt.Sprintf("Status: %s", activation.Status))
 				return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
