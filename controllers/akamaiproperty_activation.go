@@ -137,6 +137,40 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 	}
 
 	if needsActivation {
+		// Before starting a new activation, check if there's already a pending one for this version
+		pendingActivation, err := r.AkamaiClient.GetPendingActivationForVersion(ctx, akamaiProperty.Status.PropertyID, versionToActivate, activationSpec.Network)
+		if err != nil {
+			logger.Error(err, "Failed to check for pending activation")
+			return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+		}
+
+		if pendingActivation != nil {
+			// There's already a pending activation for this version
+			logger.Info("Activation already in progress for this version, will monitor it",
+				"network", activationSpec.Network,
+				"version", versionToActivate,
+				"activationID", pendingActivation.ActivationID,
+				"status", pendingActivation.Status)
+
+			// Update our status to track this activation
+			if activationSpec.Network == "STAGING" {
+				akamaiProperty.Status.StagingActivationID = pendingActivation.ActivationID
+				akamaiProperty.Status.StagingActivationStatus = pendingActivation.Status
+				akamaiProperty.Status.StagingActivationNote = activationSpec.Note
+			} else {
+				akamaiProperty.Status.ProductionActivationID = pendingActivation.ActivationID
+				akamaiProperty.Status.ProductionActivationStatus = pendingActivation.Status
+				akamaiProperty.Status.ProductionActivationNote = activationSpec.Note
+			}
+
+			if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			r.updateStatus(ctx, akamaiProperty, PhaseActivating, "ActivationInProgress", fmt.Sprintf("Monitoring existing activation for version %d", versionToActivate))
+			return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
+		}
+
 		logger.Info("Starting property activation", "network", activationSpec.Network, "version", versionToActivate, "note", activationSpec.Note)
 		r.updateStatus(ctx, akamaiProperty, PhaseActivating, "StartingActivation", fmt.Sprintf("Activating version %d on %s", versionToActivate, activationSpec.Network))
 
