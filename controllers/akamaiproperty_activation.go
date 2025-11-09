@@ -21,20 +21,26 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 	versionToActivate := akamaiProperty.Status.LatestVersion
 
 	// Check current activation status for the target network
-	var currentActivationID, currentActivationStatus string
+	var currentActivationID, currentActivationStatus, lastActivationNote string
 	if activationSpec.Network == "STAGING" {
 		currentActivationID = akamaiProperty.Status.StagingActivationID
 		currentActivationStatus = akamaiProperty.Status.StagingActivationStatus
+		lastActivationNote = akamaiProperty.Status.StagingActivationNote
 	} else if activationSpec.Network == "PRODUCTION" {
 		currentActivationID = akamaiProperty.Status.ProductionActivationID
 		currentActivationStatus = akamaiProperty.Status.ProductionActivationStatus
+		lastActivationNote = akamaiProperty.Status.ProductionActivationNote
 	}
+
+	// Check if activation note has changed - this is the trigger for new activation
+	activationNoteChanged := activationSpec.Note != lastActivationNote
 
 	// Check if we need to start a new activation
 	needsActivation := false
 	if currentActivationID == "" {
 		// No previous activation
 		needsActivation = true
+		logger.Info("No previous activation found, will activate", "network", activationSpec.Network, "version", versionToActivate)
 	} else {
 		// Check if there's already an activation in progress
 		if currentActivationStatus == "PENDING" || currentActivationStatus == "ACTIVATING" {
@@ -79,7 +85,7 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				return ctrl.Result{RequeueAfter: time.Minute * 2, Requeue: true}, nil
 			}
 		} else {
-			// Check if we need to activate a newer version
+			// Check if we need to activate a newer version based on note change
 			var currentActiveVersion int
 			if activationSpec.Network == "STAGING" {
 				currentActiveVersion = akamaiProperty.Status.StagingVersion
@@ -87,14 +93,34 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 				currentActiveVersion = akamaiProperty.Status.ProductionVersion
 			}
 
-			if versionToActivate > currentActiveVersion {
+			// Only activate if:
+			// 1. The activation note has changed (user explicitly wants new activation), OR
+			// 2. There's a newer version AND no active version yet (initial activation)
+			if activationNoteChanged {
+				logger.Info("Activation note changed, will activate latest version",
+					"network", activationSpec.Network,
+					"latestVersion", versionToActivate,
+					"currentActiveVersion", currentActiveVersion,
+					"newNote", activationSpec.Note,
+					"oldNote", lastActivationNote)
 				needsActivation = true
+			} else if versionToActivate > currentActiveVersion && currentActiveVersion == 0 {
+				// Initial activation case - no active version yet
+				logger.Info("No active version yet, will activate latest version",
+					"network", activationSpec.Network,
+					"version", versionToActivate)
+				needsActivation = true
+			} else {
+				logger.V(1).Info("Activation not needed - note unchanged and version already active",
+					"network", activationSpec.Network,
+					"latestVersion", versionToActivate,
+					"activeVersion", currentActiveVersion)
 			}
 		}
 	}
 
 	if needsActivation {
-		logger.Info("Starting property activation", "network", activationSpec.Network, "version", versionToActivate)
+		logger.Info("Starting property activation", "network", activationSpec.Network, "version", versionToActivate, "note", activationSpec.Note)
 		r.updateStatus(ctx, akamaiProperty, PhaseActivating, "StartingActivation", fmt.Sprintf("Activating version %d on %s", versionToActivate, activationSpec.Network))
 
 		activationID, err := r.AkamaiClient.ActivateProperty(ctx, akamaiProperty.Status.PropertyID, versionToActivate, activationSpec, akamaiProperty.Spec.ContractID, akamaiProperty.Spec.GroupID)
@@ -102,13 +128,15 @@ func (r *AkamaiPropertyReconciler) handleActivation(ctx context.Context, akamaiP
 			return ctrl.Result{}, fmt.Errorf("failed to activate property: %w", err)
 		}
 
-		// Update the activation ID and status
+		// Update the activation ID, status, and note
 		if activationSpec.Network == "STAGING" {
 			akamaiProperty.Status.StagingActivationID = activationID
 			akamaiProperty.Status.StagingActivationStatus = "PENDING"
+			akamaiProperty.Status.StagingActivationNote = activationSpec.Note
 		} else {
 			akamaiProperty.Status.ProductionActivationID = activationID
 			akamaiProperty.Status.ProductionActivationStatus = "PENDING"
+			akamaiProperty.Status.ProductionActivationNote = activationSpec.Note
 		}
 
 		if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
