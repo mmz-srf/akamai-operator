@@ -91,7 +91,7 @@ jobs:
         make bundle
         
         # Generate installer
-        make build-installer > akamai-operator-${VERSION}.yaml
+        make build-installer > akamai-operator.yaml
 
     - name: Build and push images
       run: |
