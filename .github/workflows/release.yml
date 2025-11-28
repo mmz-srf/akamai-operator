@@ -90,9 +90,8 @@ jobs:
         # Generate bundle
         make bundle
         
-        # Generate installer (redirect only kustomize stdout, not make recipes)
-        cd config/manager && ../../bin/kustomize edit set image controller=${IMG}
-        ./bin/kustomize build config/default > akamai-operator-${VERSION}.yaml
+        # Generate installer
+        make build-installer > akamai-operator-${VERSION}.yaml
 
     - name: Build and push images
       run: |
