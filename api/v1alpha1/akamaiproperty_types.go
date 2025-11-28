@@ -212,6 +212,12 @@ type AkamaiPropertyStatus struct {
 	// ProductionActivationStatus is the status of production activation
 	ProductionActivationStatus string `json:"productionActivationStatus,omitempty"`
 
+	// StagingActivationNote is the note from the last staging activation
+	StagingActivationNote string `json:"stagingActivationNote,omitempty"`
+
+	// ProductionActivationNote is the note from the last production activation
+	ProductionActivationNote string `json:"productionActivationNote,omitempty"`
+
 	// Conditions represent the latest available observations of the property's state
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 

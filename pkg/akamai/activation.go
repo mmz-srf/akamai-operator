@@ -117,3 +117,23 @@ func (c *Client) ListActivations(ctx context.Context, propertyID string) ([]Acti
 
 	return activations, nil
 }
+
+// GetPendingActivationForVersion checks if there's a pending/activating activation for a specific version and network
+func (c *Client) GetPendingActivationForVersion(ctx context.Context, propertyID string, version int, network string) (*Activation, error) {
+	// Get all activations for the property
+	activations, err := c.ListActivations(ctx, propertyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list activations: %w", err)
+	}
+
+	// Find any pending/activating activation for the specified version and network
+	for _, activation := range activations {
+		if activation.PropertyVersion == version &&
+			activation.Network == network &&
+			(activation.Status == "PENDING" || activation.Status == "ACTIVATING") {
+			return &activation, nil
+		}
+	}
+
+	return nil, nil // No pending activation found
+}

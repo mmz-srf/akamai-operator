@@ -19,19 +19,41 @@ func (r *AkamaiPropertyReconciler) updateRulesIfNeeded(ctx context.Context, akam
 		return false, fmt.Errorf("rule validation failed: %w", err)
 	}
 
-	// Check if the latest version is published on staging or production
-	isPublished, network, err := r.AkamaiClient.IsVersionPublished(ctx, akamaiProperty.Status.PropertyID, akamaiProperty.Status.LatestVersion)
+	// Always inspect the existing latest version first (avoid premature version bumps)
+	latestVersion := akamaiProperty.Status.LatestVersion
+
+	currentRules, err := r.AkamaiClient.GetPropertyRules(ctx,
+		akamaiProperty.Status.PropertyID,
+		latestVersion,
+		akamaiProperty.Spec.ContractID,
+		akamaiProperty.Spec.GroupID)
 	if err != nil {
-		return false, fmt.Errorf("failed to check if version is published: %w", err)
+		return false, fmt.Errorf("failed to get current property rules for version %d: %w", latestVersion, err)
 	}
 
-	versionToUpdate := akamaiProperty.Status.LatestVersion
+	// Determine if a rules update is actually required
+	needsUpdate, err := r.rulesNeedUpdate(akamaiProperty.Spec.Rules, currentRules.Rules)
+	if err != nil {
+		return false, fmt.Errorf("failed to compare rules: %w", err)
+	}
+	if !needsUpdate {
+		// No change -> do not create a new version even if published
+		logger.V(1).Info("Property rules are up to date; no version bump", "propertyID", akamaiProperty.Status.PropertyID, "version", latestVersion)
+		return false, nil
+	}
 
+	// We have a change. Only now decide whether we need a new version (if the current is published)
+	isPublished, publishedNetwork, err := r.AkamaiClient.IsVersionPublished(ctx, akamaiProperty.Status.PropertyID, latestVersion)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if version %d is published: %w", latestVersion, err)
+	}
+
+	versionToUpdate := latestVersion
 	if isPublished {
-		// The latest version is published, we need to create a new version
-		logger.Info("Latest version is published, creating new version for rules update",
-			"currentVersion", akamaiProperty.Status.LatestVersion,
-			"network", network)
+		// Create a new editable version cloned from the published one
+		logger.Info("Latest version is published; creating new version for rules update",
+			"currentVersion", latestVersion,
+			"publishedNetwork", publishedNetwork)
 
 		newVersion, err := r.AkamaiClient.UpdateProperty(ctx, akamaiProperty.Status.PropertyID, &akamaiProperty.Spec)
 		if err != nil {
@@ -40,46 +62,24 @@ func (r *AkamaiPropertyReconciler) updateRulesIfNeeded(ctx context.Context, akam
 
 		versionToUpdate = newVersion
 		akamaiProperty.Status.LatestVersion = newVersion
-
-		// Update the status to reflect the new version
 		if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
 			return false, fmt.Errorf("failed to update status with new version: %w", err)
 		}
 
+		// Refresh currentRules etag if needed (optional: not strictly required because we'll overwrite rules)
 		logger.Info("Created new version for rules update", "newVersion", newVersion)
 	}
 
-	// Get current rules from Akamai for the version we're updating
-	currentRules, err := r.AkamaiClient.GetPropertyRules(ctx,
-		akamaiProperty.Status.PropertyID,
-		versionToUpdate,
-		akamaiProperty.Spec.ContractID,
-		akamaiProperty.Spec.GroupID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get current property rules: %w", err)
-	}
-
-	// Check if rules need updating by comparing desired vs current
-	needsUpdate, err := r.rulesNeedUpdate(akamaiProperty.Spec.Rules, currentRules.Rules)
-	if err != nil {
-		return false, fmt.Errorf("failed to compare rules: %w", err)
-	}
-
-	if !needsUpdate {
-		logger.V(1).Info("Property rules are up to date", "propertyID", akamaiProperty.Status.PropertyID)
-		return false, nil
-	}
-
-	logger.Info("Property rules need updating", "propertyID", akamaiProperty.Status.PropertyID, "version", versionToUpdate)
+	logger.Info("Property rules need updating", "propertyID", akamaiProperty.Status.PropertyID, "targetVersion", versionToUpdate)
 	r.updateStatus(ctx, akamaiProperty, PhaseUpdating, "UpdatingPropertyRules", "")
 
-	// Convert our PropertyRules to the format expected by Akamai
+	// Convert desired rules to Akamai expected format
 	rulesInterface, err := r.convertRulesToAkamaiFormat(akamaiProperty.Spec.Rules)
 	if err != nil {
 		return false, fmt.Errorf("failed to convert rules to Akamai format: %w", err)
 	}
 
-	// Update the rules
+	// Perform the update against the chosen version
 	updatedRules, err := r.AkamaiClient.UpdatePropertyRules(ctx,
 		akamaiProperty.Status.PropertyID,
 		versionToUpdate,
@@ -95,7 +95,6 @@ func (r *AkamaiPropertyReconciler) updateRulesIfNeeded(ctx context.Context, akam
 		"propertyID", akamaiProperty.Status.PropertyID,
 		"version", versionToUpdate,
 		"newEtag", updatedRules.Etag)
-
 	return true, nil
 }
 
