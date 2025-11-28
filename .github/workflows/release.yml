@@ -133,7 +133,7 @@ jobs:
         name: Release ${{ inputs.version }}
         body_path: CHANGELOG.md
         files: |
-          akamai-operator-${{ inputs.version }}.yaml
+          akamai-operator.yaml
         draft: false
         prerelease: ${{ inputs.prerelease }}
 
