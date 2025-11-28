@@ -81,6 +81,26 @@ func (r *AkamaiPropertyReconciler) reconcileProperty(ctx context.Context, akamai
 		return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 	}
 
+	// Sync observed versions from Akamai to CR status to avoid stale display
+	// This ensures that STAGING/PRODUCTION active versions reflect reality even if activation
+	// completed outside our immediate polling loop.
+	if currentProperty.LatestVersion != 0 && akamaiProperty.Status.LatestVersion != currentProperty.LatestVersion {
+		logger.V(1).Info("Syncing latest version from Akamai", "old", akamaiProperty.Status.LatestVersion, "new", currentProperty.LatestVersion)
+		akamaiProperty.Status.LatestVersion = currentProperty.LatestVersion
+	}
+	if currentProperty.StagingVersion != 0 && akamaiProperty.Status.StagingVersion != currentProperty.StagingVersion {
+		logger.V(1).Info("Syncing staging version from Akamai", "old", akamaiProperty.Status.StagingVersion, "new", currentProperty.StagingVersion)
+		akamaiProperty.Status.StagingVersion = currentProperty.StagingVersion
+	}
+	if currentProperty.ProductionVersion != 0 && akamaiProperty.Status.ProductionVersion != currentProperty.ProductionVersion {
+		logger.V(1).Info("Syncing production version from Akamai", "old", akamaiProperty.Status.ProductionVersion, "new", currentProperty.ProductionVersion)
+		akamaiProperty.Status.ProductionVersion = currentProperty.ProductionVersion
+	}
+	// Persist any sync changes
+	if err := r.updateStatusWithRetry(ctx, akamaiProperty); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Check if property needs to be updated
 	if r.needsUpdate(akamaiProperty, currentProperty) {
 		logger.Info("Updating Akamai property", "propertyID", akamaiProperty.Status.PropertyID)
