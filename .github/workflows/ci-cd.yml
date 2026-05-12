@@ -238,7 +238,9 @@ jobs:
           - Update timestamps to $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           
           git fetch origin main
+          git stash
           git rebase origin/main
+          git stash pop
           git push origin HEAD:main
         else
           echo "No changes to commit"
