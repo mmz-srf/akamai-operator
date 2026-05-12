@@ -219,6 +219,7 @@ jobs:
         docker push $BUNDLE_IMG
 
     - name: Commit updated metadata files
+      if: github.ref == 'refs/heads/main'
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
@@ -237,10 +238,6 @@ jobs:
           - Update bundle metadata and CSV version
           - Update timestamps to $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           
-          git fetch origin main
-          git stash
-          git rebase origin/main
-          git stash pop
           git push origin HEAD:main
         else
           echo "No changes to commit"
