@@ -178,7 +178,7 @@ jobs:
 
     - name: Install controller-gen
       run: |
-        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.0 # 'latest' did not work
 
     - name: Install yq for YAML processing
       run: |
