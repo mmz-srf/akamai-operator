@@ -237,6 +237,8 @@ jobs:
           - Update bundle metadata and CSV version
           - Update timestamps to $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
         else
           echo "No changes to commit"
