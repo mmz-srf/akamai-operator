@@ -71,6 +71,14 @@ lint: golangci-lint ## Run golangci-lint linter & yamllint
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
 
+.PHONY: kind-create
+kind-create: ## Create a kind cluster using the configuration in kind.yaml
+	kind create cluster --config kind.yaml
+
+.PHONY: kind-delete
+kind-delete: ## Delete the kind cluster
+	kind delete cluster -n akamai-operator-test
+
 ##@ Build
 
 .PHONY: build
