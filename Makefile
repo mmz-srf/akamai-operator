@@ -71,6 +71,14 @@ lint: golangci-lint ## Run golangci-lint linter & yamllint
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
 
+.PHONY: kind-create
+kind-create: ## Create a kind cluster using the configuration in kind.yaml
+	kind create cluster --config kind.yaml
+
+.PHONY: kind-delete
+kind-delete: ## Delete the kind cluster
+	kind delete cluster -n akamai-operator-test
+
 ##@ Build
 
 .PHONY: build
@@ -233,7 +241,7 @@ OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.2.1
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
+CONTROLLER_TOOLS_VERSION ?= v0.21.0
 OPERATOR_SDK_VERSION ?= v1.34.1
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
